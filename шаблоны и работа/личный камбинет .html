@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>INFINDA — Панель управления</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-dark: #0a0c12;
+      --bg-card: #12141c;
+      --border: rgba(255,255,255,0.08);
+      --purple: #8b5cff;
+      --cyan: #19d7ff;
+      --green: #55ff96;
+      --red: #ff5c5c;
+      --text: #f0f0f5;
+      --text-muted: #8a8d98;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      overflow-x: hidden;
+      height: 100vh;
+    }
+
+    .bg-glow {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at 20% 30%, rgba(139,92,255,0.12), transparent 50%),
+                  radial-gradient(ellipse at 80% 70%, rgba(25,215,255,0.08), transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Лейаут */
+    .app {
+      display: flex;
+      height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Сайдбар (с возможностью схлопывания до иконок) */
+    .sidebar {
+      width: 280px;
+      background: rgba(18, 20, 28, 0.95);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.3s ease;
+      overflow-x: hidden;
+      z-index: 20;
+    }
+    .sidebar.collapsed {
+      width: 80px;
+    }
+    .sidebar.collapsed .logo span,
+    .sidebar.collapsed .nav-item span,
+    .sidebar.collapsed .user-info,
+    .sidebar.collapsed .user-card .logout {
+      display: none;
+    }
+    .sidebar.collapsed .nav-item {
+      justify-content: center;
+      padding: 12px;
+    }
+    .sidebar.collapsed .user-card {
+      justify-content: center;
+    }
+    .sidebar.collapsed .avatar {
+      margin: 0 auto;
+    }
+    .menu-toggle {
+      position: fixed;
+      left: 20px;
+      top: 20px;
+      z-index: 30;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      cursor: pointer;
+      font-size: 20px;
+      color: white;
+      transition: 0.2s;
+    }
+    .menu-toggle:hover {
+      background: var(--purple);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 28px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .logo span {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff, var(--cyan));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      white-space: nowrap;
+    }
+
+    .nav {
+      flex: 1;
+      padding: 24px 16px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(139,92,255,0.2), rgba(25,215,255,0.1));
+      color: white;
+    }
+    .nav-item:hover:not(.active) {
+      background: rgba(255,255,255,0.05);
+      color: white;
+    }
+    .nav-item i {
+      width: 24px;
+      flex-shrink: 0;
+    }
+
+    .user-card {
+      background: rgba(255,255,255,0.03);
+      border-radius: 20px;
+      margin: 16px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .avatar {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--purple), var(--cyan));
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .user-info {
+      flex: 1;
+      overflow: hidden;
+    }
+    .user-name {
+      font-weight: 600;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+    .user-email {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .logout {
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+      transition: 0.2s;
+    }
+    .logout:hover {
+      color: var(--red);
+    }
+
+    /* Основной контент */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+    .page-header h1 {
+      font-size: 28px;
+      font-weight: 600;
+    }
+
+    /* Карточки обзора (три блока) */
+    .stats-row {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border-radius: 28px;
+      padding: 22px;
+      flex: 1;
+      min-width: 180px;
+      border: 1px solid var(--border);
+    }
+    .stat-title {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff, var(--cyan));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* Блок ссылки (светлее) */
+    .subscription-url {
+      background: #2a2c38;
+      border-radius: 20px;
+      padding: 16px;
+      margin-bottom: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .url-code {
+      font-family: monospace;
+      font-size: 13px;
+      background: #1a1c24;
+      padding: 8px 12px;
+      border-radius: 40px;
+      word-break: break-all;
+      flex: 1;
+      color: #ddd;
+    }
+    .copy-btn {
+      background: #1e1e2a;
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: 0.2s;
+      color: white;
+    }
+    .copy-btn:hover {
+      background: var(--purple);
+      border-color: var(--purple);
+    }
+
+    /* Линейный график */
+    .week-traffic {
+      background: var(--bg-card);
+      border-radius: 28px;
+      padding: 22px;
+      border: 1px solid var(--border);
+    }
+    .week-traffic h3 i {
+      margin-right: 8px;
+      color: var(--cyan);
+    }
+    canvas {
+      width: 100%;
+      height: 180px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 20px;
+      margin-top: 16px;
+    }
+
+    /* Подписка (блоки не растянуты) */
+    .sub-container {
+      max-width: 700px;
+    }
+    .sub-details {
+      background: var(--bg-card);
+      border-radius: 28px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+    }
+    .sub-detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .country-select {
+      background: var(--bg-card);
+      border-radius: 28px;
+      padding: 24px;
+      border: 1px solid var(--border);
+    }
+    .country-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 16px 0;
+    }
+    .country-btn {
+      background: #1e1e2a;
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      padding: 8px 20px;
+      cursor: pointer;
+      transition: 0.2s;
+      color: white;
+    }
+    .country-btn.active {
+      background: var(--purple);
+      border-color: transparent;
+    }
+    .single-url {
+      margin-top: 16px;
+      font-size: 13px;
+      word-break: break-all;
+      background: #0a0c12;
+      padding: 10px;
+      border-radius: 40px;
+      font-family: monospace;
+    }
+
+    /* Устройства */
+    .device-item {
+      background: rgba(0,0,0,0.2);
+      border-radius: 20px;
+      margin-bottom: 12px;
+      cursor: pointer;
+    }
+    .device-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px;
+    }
+    .device-info {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+    .device-expand {
+      padding: 0 14px 14px 14px;
+      border-top: 1px solid var(--border);
+      display: none;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .device-item.expanded .device-expand {
+      display: block;
+    }
+    .revoke-btn {
+      background: rgba(255,92,92,0.2);
+      border: 1px solid var(--red);
+      color: var(--red);
+      padding: 6px 14px;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .revoke-btn:hover {
+      background: var(--red);
+      color: white;
+    }
+
+    /* Чат на всю область */
+    .chat-container {
+      background: var(--bg-card);
+      border-radius: 28px;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 140px);
+      border: 1px solid var(--border);
+    }
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .online-status {
+      color: var(--green);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .message {
+      max-width: 70%;
+      padding: 10px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+    .message.user {
+      background: linear-gradient(135deg, var(--purple), var(--cyan));
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .message.support {
+      background: rgba(255,255,255,0.05);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .message-name {
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--cyan);
+    }
+    .chat-input {
+      display: flex;
+      gap: 12px;
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .chat-input input {
+      flex: 1;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      padding: 12px 16px;
+      color: white;
+    }
+    .chat-input .attach-btn {
+      background: #1e1e2a;
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      padding: 0 16px;
+      cursor: pointer;
+      color: white;
+      font-size: 16px;
+    }
+    .send-btn {
+      background: #1e1e2a;
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      padding: 0 20px;
+      cursor: pointer;
+      color: white;
+    }
+
+    /* Прочее */
+    .page { display: none; }
+    .page.active { display: block; }
+    @media (max-width: 700px) {
+      .main { padding: 20px; }
+      .stats-row { flex-direction: column; }
+      .chat-container { height: calc(100vh - 160px); }
+    }
+  </style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="app">
+  <div class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <div class="logo-icon"></div>
+      <span>INFINDA</span>
+    </div>
+    <div class="nav">
+      <div class="nav-item active" data-page="overview"><i class="fas fa-compass"></i><span>Обзор</span></div>
+      <div class="nav-item" data-page="subscription"><i class="fas fa-tag"></i><span>Подписка</span></div>
+      <div class="nav-item" data-page="devices"><i class="fas fa-laptop"></i><span>Устройства</span></div>
+      <div class="nav-item" data-page="support"><i class="fas fa-headset"></i><span>Поддержка</span></div>
+    </div>
+    <div class="user-card">
+      <div class="avatar"><i class="fas fa-user-astronaut"></i></div>
+      <div class="user-info">
+        <div class="user-name">Алексей</div>
+        <div class="user-email">alexey@infinda.com</div>
+      </div>
+      <div class="logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- Обзор (три блока) -->
+    <div id="overview" class="page active">
+      <div class="page-header">
+        <h1>Обзор</h1>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-title">Осталось дней</div><div class="stat-value" id="daysLeft">365</div></div>
+        <div class="stat-card"><div class="stat-title">Использовано трафика</div><div class="stat-value" id="trafficUsed">247</div><div class="stat-sub">ГБ / Безлимит</div></div>
+        <div class="stat-card"><div class="stat-title">Активные устройства</div><div class="stat-value" id="activeDevicesCount">2</div><div class="stat-sub">из 10</div></div>
+      </div>
+      <!-- Блок ссылки (светлее) -->
+      <div class="subscription-url">
+        <div class="url-code" id="subscriptionUrl">https://infinda.com/sub/abc123xyz</div>
+        <button class="copy-btn" id="copyMainUrl"><i class="fas fa-copy"></i> Копировать</button>
+      </div>
+      <!-- График с современной иконкой -->
+      <div class="week-traffic">
+        <h3><i class="fas fa-chart-line"></i> Трафик за неделю (ГБ)</h3>
+        <canvas id="trafficCanvas" width="800" height="180" style="width:100%; height:180px"></canvas>
+      </div>
+    </div>
+
+    <!-- Подписка -->
+    <div id="subscription" class="page">
+      <div class="page-header">
+        <h1>Подписка</h1>
+      </div>
+      <div class="sub-container">
+        <div class="subscription-url">
+          <div class="url-code" id="subUrlMain">https://infinda.com/sub/abc123xyz</div>
+          <button class="copy-btn" id="copySubUrl"><i class="fas fa-copy"></i> Копировать</button>
+        </div>
+        <div class="country-select">
+          <h3>🌍 Отдельная ссылка для сервера</h3>
+          <div class="country-buttons" id="countryButtons">
+            <button class="country-btn" data-country="ru">🇷🇺 Россия</button>
+            <button class="country-btn" data-country="ee">🇪🇪 Эстония</button>
+            <button class="country-btn" data-country="de">🇩🇪 Германия</button>
+            <button class="country-btn" data-country="nl">🇳🇱 Нидерланды</button>
+          </div>
+          <div class="single-url" id="singleUrlDisplay">Выберите страну</div>
+          <button class="copy-btn" id="copySingleUrl" style="margin-top: 16px;">Копировать ссылку на сервер</button>
+        </div>
+        <div class="sub-details" style="margin-top: 24px;">
+          <div class="sub-detail-row"><span><strong>Тариф</strong></span><span>12 месяцев (безлимит)</span></div>
+          <div class="sub-detail-row"><span><strong>Активна до</strong></span><span>4 июня 2027</span></div>
+          <div class="sub-detail-row"><span><strong>Осталось дней</strong></span><span>365</span></div>
+          <div class="sub-detail-row"><span><strong>Устройств</strong></span><span>5 из 10</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Устройства -->
+    <div id="devices" class="page">
+      <div class="page-header">
+        <h1>Устройства</h1>
+      </div>
+      <div id="devicesList"></div>
+    </div>
+
+    <!-- Поддержка (на всю область) -->
+    <div id="support" class="page">
+      <div class="chat-container">
+        <div class="chat-header">
+          <div class="online-status"><i class="fas fa-circle" style="font-size: 10px;"></i> Поддержка онлайн</div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="message support"><div class="message-name">Анна (поддержка)</div>Здравствуйте! Чем могу помочь?</div>
+          <div class="message user">Здравствуйте, у меня вопрос по подписке</div>
+          <div class="message support"><div class="message-name">Дмитрий (поддержка)</div>Конечно, задавайте. Мы ответим в течение пары минут</div>
+        </div>
+        <div class="chat-input">
+          <button class="attach-btn" id="attachFileBtn"><i class="fas fa-paperclip"></i></button>
+          <input type="text" id="chatInput" placeholder="Напишите сообщение...">
+          <button class="send-btn" id="sendMsgBtn"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // Устройства
+  const devicesData = [
+    { name: 'Windows PC', ip: '192.168.1.101', last: 'Сегодня 14:23', status: 'online', icon: 'fa-desktop', os: 'Windows 11', browser: 'Chrome 125' },
+    { name: 'iPhone 14 Pro', ip: '192.168.1.105', last: 'Сегодня 12:15', status: 'online', icon: 'fa-mobile-alt', os: 'iOS 17.5', browser: 'Safari' },
+    { name: 'MacBook Air', ip: '192.168.1.110', last: 'Вчера 22:10', status: 'offline', icon: 'fa-laptop', os: 'macOS 14.5', browser: 'Firefox' }
+  ];
+
+  function renderDevices() {
+    const container = document.getElementById('devicesList');
+    container.innerHTML = '';
+    devicesData.forEach((dev, idx) => {
+      const deviceDiv = document.createElement('div');
+      deviceDiv.className = 'device-item';
+      deviceDiv.innerHTML = `
+        <div class="device-header">
+          <div class="device-info">
+            <i class="fas ${dev.icon}" style="font-size: 24px;"></i>
+            <div>
+              <strong>${dev.name}</strong><br>
+              <span style="font-size: 12px;">${dev.ip} • ${dev.last}</span>
+            </div>
+          </div>
+          <div>
+            <span style="color: ${dev.status === 'online' ? '#55ff96' : '#aaa'};">${dev.status === 'online' ? '● Онлайн' : '○ Офлайн'}</span>
+            <button class="revoke-btn" data-device-idx="${idx}">Отозвать</button>
+          </div>
+        </div>
+        <div class="device-expand">
+          <p><strong>ОС:</strong> ${dev.os}</p>
+          <p><strong>Браузер:</strong> ${dev.browser}</p>
+          <p><strong>Последняя активность:</strong> ${dev.last}</p>
+        </div>
+      `;
+      deviceDiv.addEventListener('click', (e) => {
+        if (e.target.classList.contains('revoke-btn')) return;
+        deviceDiv.classList.toggle('expanded');
+      });
+      container.appendChild(deviceDiv);
+    });
+    document.querySelectorAll('.revoke-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = btn.getAttribute('data-device-idx');
+        alert(`Устройство "${devicesData[idx].name}" будет отозвано (демо).`);
+      });
+    });
+  }
+
+  // Линейный график (Canvas)
+  const weekValues = [12, 18, 24, 28, 32, 30, 25];
+  const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  function drawLineChart() {
+    const canvas = document.getElementById('trafficCanvas');
+    const ctx = canvas.getContext('2d');
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    canvas.width = w;
+    canvas.height = h;
+    const padding = 40;
+    const step = (w - padding * 2) / (weekValues.length - 1);
+    const maxVal = 40;
+    const points = weekValues.map((val, i) => ({
+      x: padding + i * step,
+      y: h - padding - (val / maxVal) * (h - padding * 2)
+    }));
+    ctx.clearRect(0, 0, w, h);
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.strokeStyle = '#19d7ff';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    points.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = '#8b5cff';
+      ctx.fill();
+    });
+    ctx.fillStyle = '#aaa';
+    ctx.font = '12px Inter';
+    for (let i = 0; i < days.length; i++) {
+      ctx.fillText(days[i], points[i].x - 10, h - padding + 20);
+      ctx.fillText(weekValues[i] + ' ГБ', points[i].x - 15, points[i].y - 8);
+    }
+  }
+
+  // Ссылки
+  const mainUrl = 'https://infinda.com/sub/abc123xyz';
+  const singleUrls = {
+    ru: 'https://infinda.com/sub/ru_abc123xyz',
+    ee: 'https://infinda.com/sub/ee_abc123xyz',
+    de: 'https://infinda.com/sub/de_abc123xyz',
+    nl: 'https://infinda.com/sub/nl_abc123xyz'
+  };
+  let currentCountry = 'ru';
+  function updateSingleUrl() {
+    const url = singleUrls[currentCountry];
+    document.getElementById('singleUrlDisplay').innerHTML = `<code style="background: transparent; color: #ddd;">${url}</code>`;
+  }
+  document.querySelectorAll('.country-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.country-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentCountry = btn.getAttribute('data-country');
+      updateSingleUrl();
+    });
+  });
+  document.getElementById('copySingleUrl').addEventListener('click', () => {
+    navigator.clipboard.writeText(singleUrls[currentCountry]);
+    alert('Ссылка скопирована');
+  });
+  document.getElementById('copyMainUrl').addEventListener('click', () => {
+    navigator.clipboard.writeText(mainUrl);
+    alert('Ссылка скопирована');
+  });
+  document.getElementById('copySubUrl').addEventListener('click', () => {
+    navigator.clipboard.writeText(mainUrl);
+    alert('Ссылка скопирована');
+  });
+
+  // Чат
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  function addMessage(text, type, name = '') {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${type}`;
+    if (type === 'support' && name) {
+      const nameSpan = document.createElement('div');
+      nameSpan.className = 'message-name';
+      nameSpan.innerText = name;
+      msgDiv.appendChild(nameSpan);
+    }
+    const textSpan = document.createElement('span');
+    textSpan.innerText = text;
+    msgDiv.appendChild(textSpan);
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+  document.getElementById('sendMsgBtn').addEventListener('click', () => {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    addMessage(text, 'user');
+    chatInput.value = '';
+    setTimeout(() => {
+      const supportNames = ['Анна (поддержка)', 'Дмитрий (поддержка)'];
+      const randomName = supportNames[Math.floor(Math.random() * supportNames.length)];
+      addMessage('Спасибо за обращение! Мы ответим в ближайшее время.', 'support', randomName);
+    }, 800);
+  });
+  document.getElementById('attachFileBtn').addEventListener('click', () => {
+    alert('Функция прикрепления файлов будет доступна в ближайшее время.');
+  });
+
+  // Переключение страниц
+  const navItems = document.querySelectorAll('.nav-item');
+  const pages = document.querySelectorAll('.page');
+  function switchPage(pageId) {
+    pages.forEach(p => p.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    navItems.forEach(item => {
+      if (item.getAttribute('data-page') === pageId) item.classList.add('active');
+      else item.classList.remove('active');
+    });
+  }
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      switchPage(item.getAttribute('data-page'));
+    });
+  });
+
+  // Меню-бургер (схлопывание до иконок)
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  menuToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+  });
+
+  // Выход
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    alert('Вы вышли из системы');
+    window.location.href = 'index.html';
+  });
+
+  // Активные устройства
+  document.getElementById('activeDevicesCount').innerText = devicesData.filter(d => d.status === 'online').length;
+
+  // Инициализация
+  renderDevices();
+  drawLineChart();
+  updateSingleUrl();
+  document.querySelector('.country-btn').classList.add('active');
+  window.addEventListener('resize', () => drawLineChart());
+</script>
+</body>
+</html>

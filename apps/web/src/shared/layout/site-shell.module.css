@@ -1,0 +1,15 @@
+.shell {
+  --site-header-height: 72px;
+  min-height: 100vh;
+}
+
+.main {
+  display: block;
+  padding-top: var(--site-header-height);
+}
+
+@media (max-width: 540px) {
+  .shell {
+    --site-header-height: 68px;
+  }
+}

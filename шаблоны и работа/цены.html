@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INFINDA — Цены и тарифы</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    /* Все стили остаются точно такими же, как в предыдущем ответе */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #010103; --text: #f5f5f7; --muted: #9b9ba6; --line: rgba(255,255,255,.06);
+      --purple: #8b5cff; --cyan: #19d7ff; --green: #55ff96; --pink: #ff6bcb;
+    }
+    body { font-family: "Manrope", sans-serif; background: #010103; color: var(--text); overflow-x: hidden; font-size: 18px; line-height: 1.5; }
+    .animated-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; background: #010103; }
+    .animated-bg::before { content: ''; position: absolute; width: 200%; height: 200%; top: -50%; left: -50%; background: radial-gradient(circle at 30% 40%, rgba(139,92,255,0.12) 0%, transparent 40%), radial-gradient(circle at 70% 80%, rgba(25,215,255,0.08) 0%, transparent 45%), radial-gradient(circle at 85% 20%, rgba(85,255,150,0.05) 0%, transparent 50%); animation: slowShift 24s infinite alternate ease-in-out; pointer-events: none; }
+    @keyframes slowShift { 0% { transform: translate(0%,0%) rotate(0deg); opacity: 0.5; } 100% { transform: translate(-4%,-2%) rotate(2deg); opacity: 0.7; } }
+    .float-bubbles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+    .bubble { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(139,92,255,0.1), transparent); animation: floatUp 20s infinite alternate; }
+    .b1 { width: 250px; height: 250px; bottom: -100px; left: 5%; }
+    .b2 { width: 400px; height: 400px; top: -150px; right: 0; background: radial-gradient(circle, rgba(25,215,255,0.08), transparent); animation-duration: 25s; }
+    .b3 { width: 180px; height: 180px; top: 40%; right: 10%; background: radial-gradient(circle, rgba(85,255,150,0.06), transparent); animation-duration: 18s; }
+    .b4 { width: 120px; height: 120px; bottom: 20%; left: 20%; background: radial-gradient(circle, rgba(255,111,203,0.05), transparent); animation-duration: 22s; }
+    @keyframes floatUp { 0% { transform: translateY(0) rotate(0deg); } 100% { transform: translateY(-50px) rotate(8deg); } }
+    ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: #0b0b10; } ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 10px; }
+    .container { width: min(1300px, calc(100% - 40px)); margin: 0 auto; }
+    header { height: 72px; border-bottom: 1px solid var(--line); backdrop-filter: blur(18px); position: sticky; top: 0; z-index: 20; background: rgba(1,1,3,.85); }
+    .nav { height: 100%; display: flex; align-items: center; justify-content: space-between; }
+    .brand { display: flex; align-items: center; gap: 12px; color: white; text-decoration: none; letter-spacing: 6px; font-size: 15px; font-weight: 500; }
+    .mark { width: 34px; height: 30px; clip-path: polygon(50% 0%,100% 100%,82% 100%,50% 30%,18% 100%,0 100%); background: linear-gradient(135deg, var(--cyan), var(--purple)); filter: drop-shadow(0 0 10px rgba(139,92,255,.5)); }
+    nav { display: flex; gap: 32px; }
+    nav a { color: #d8d8df; text-decoration: none; font-size: 15px; font-weight: 500; transition: all 0.2s ease; }
+    nav a:hover, nav a.active { color: white; transform: translateY(-2px); text-shadow: 0 0 8px rgba(139,92,255,.8); }
+    nav a.active { border-bottom: 1px solid var(--purple); padding-bottom: 4px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; padding: 0 26px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.03); color: white; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.25s ease; }
+    .btn:hover { transform: translateY(-2px); border-color: rgba(139,92,255,.7); background: rgba(139,92,255,.15); }
+    .btn-primary { border: none; background: linear-gradient(135deg, #1fbfff, #8b5cff); box-shadow: 0 0 20px rgba(139,92,255,.35); animation: pulseGlow 2s infinite; }
+    @keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(31, 191, 255, 0.4); } 70% { box-shadow: 0 0 0 12px rgba(139, 92, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(139, 92, 255, 0); } }
+    .price-hero { text-align: center; padding: 60px 0 40px; }
+    .price-hero h1 { font-size: clamp(42px, 7vw, 72px); background: linear-gradient(135deg, #fff, var(--pink), var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 16px; }
+    .pricing-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; margin: 30px 0 70px; }
+    .price-card { background: rgba(12, 14, 22, 0.7); backdrop-filter: blur(12px); border-radius: 36px; padding: 32px 20px 40px; width: 280px; text-align: center; transition: all 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1); border: 1px solid rgba(255,255,255,0.1); position: relative; transform-style: preserve-3d; }
+    .price-card:hover { transform: translateY(-12px) rotateX(4deg); border-color: rgba(139,92,255,0.5); box-shadow: 0 30px 40px -20px rgba(0,0,0,0.6); }
+    .card-popular { border: 1px solid var(--green); box-shadow: 0 0 20px rgba(85,255,150,0.2); }
+    .popular-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--green); color: #000; font-weight: 700; font-size: 12px; padding: 4px 14px; border-radius: 40px; white-space: nowrap; }
+    .discount-badge { position: absolute; top: 12px; right: 12px; background: rgba(255,111,203,0.9); color: #fff; font-weight: 700; font-size: 12px; padding: 4px 10px; border-radius: 40px; backdrop-filter: blur(4px); }
+    .card-icon { font-size: 48px; background: linear-gradient(135deg, #fff, var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 20px; }
+    .price-card h3 { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+    .price-wrapper { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 20px 0 8px; }
+    .price { font-size: 44px; font-weight: 800; background: linear-gradient(135deg, #fff, var(--purple)); -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 1; }
+    .price small { font-size: 14px; font-weight: 400; color: #aaa; }
+    .old-price { text-decoration: line-through; font-size: 18px; font-weight: 500; color: #ff6bcb; }
+    .price-period { font-size: 14px; color: #777; margin-bottom: 20px; }
+    .features-list { list-style: none; margin: 25px 0; text-align: left; }
+    .features-list li { padding: 8px 0; display: flex; align-items: center; gap: 12px; font-size: 14px; border-bottom: 1px dashed rgba(255,255,255,0.05); }
+    .features-list i { width: 20px; color: var(--green); }
+    .btn-price { margin-top: 20px; width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); }
+    .btn-price:hover { background: linear-gradient(135deg, var(--cyan), var(--purple)); border: none; }
+    .compare-section { background: rgba(255,255,255,0.02); border-radius: 48px; padding: 40px 30px; margin: 40px 0 60px; border: 1px solid var(--line); }
+    .compare-section h2 { text-align: center; font-size: 28px; margin-bottom: 32px; }
+    .compare-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center; }
+    .compare-item { padding: 20px; background: rgba(0,0,0,0.3); border-radius: 28px; }
+    .compare-item h4 { font-size: 18px; margin-bottom: 12px; }
+    .compare-value { font-size: 28px; font-weight: 700; color: var(--cyan); }
+    .faq-section { margin: 60px 0; }
+    .faq-section h2 { text-align: center; font-size: 32px; margin-bottom: 40px; }
+    .faq-item { background: rgba(255,255,255,0.02); border-radius: 24px; margin-bottom: 16px; border: 1px solid var(--line); overflow: hidden; }
+    .faq-question { padding: 20px 28px; font-size: 18px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; }
+    .faq-question:hover { background: rgba(139,92,255,0.1); }
+    .faq-question i { transition: 0.3s; }
+    .faq-answer { padding: 0 28px 20px; color: #aaa; font-size: 15px; display: none; }
+    .faq-item.open .faq-answer { display: block; }
+    .faq-item.open .faq-question i { transform: rotate(180deg); }
+    .cta-prices { text-align: center; padding: 50px 0 70px; border-top: 1px solid var(--line); }
+    .cta-prices h3 { font-size: 32px; margin-bottom: 20px; }
+    footer { border-top: 1px solid var(--line); padding: 52px 0 36px; margin-top: 20px; }
+    .footer-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px; margin-bottom: 52px; }
+    .footer-col h4 { font-size: 15px; font-weight: 600; margin-bottom: 22px; color: #dddddd; }
+    .footer-col a { display: block; color: #9b9ba6; text-decoration: none; font-size: 13px; margin-bottom: 12px; transition: .2s; }
+    .footer-col a:hover { color: white; transform: translateX(4px); }
+    .social-icons { display: flex; gap: 16px; margin-top: 24px; }
+    .social-icons a { width: 36px; height: 36px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #9b9ba6; }
+    .social-icons a:hover { background: var(--purple); color: white; transform: translateY(-3px); }
+    .footer-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding-top: 28px; border-top: 1px solid var(--line); font-size: 13px; }
+    @media (max-width: 1100px) { .price-card { width: 260px; } .price { font-size: 38px; } .old-price { font-size: 16px; } }
+    @media (max-width: 860px) { nav { display: none; } .pricing-grid { flex-direction: column; align-items: center; } .price-card { width: 320px; } .compare-grid { grid-template-columns: 1fr 1fr; gap: 16px; } .footer-grid { grid-template-columns: 1fr 1fr; } .price { font-size: 44px; } .old-price { font-size: 18px; } }
+    @media (max-width: 540px) { .footer-grid { grid-template-columns: 1fr; } .compare-grid { grid-template-columns: 1fr; } .price-card { width: 100%; } .price { font-size: 38px; } .old-price { font-size: 16px; } }
+    @media (max-width: 380px) { .price { font-size: 32px; } .old-price { font-size: 14px; } }
+  </style>
+</head>
+<body>
+<div class="animated-bg"></div>
+<div class="float-bubbles"><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="bubble b4"></div></div>
+
+<header>
+  <div class="container nav">
+    <a href="index.html" class="brand"><div class="mark"></div>INFINDA</a>
+    <nav>
+      <a href="index.html">Главная</a>
+      <a href="features.html">Возможности</a>
+      <a href="prices.html" class="active">Цены</a>
+      <a href="#">Ресурсы</a>
+      <a href="#">О нас</a>
+    </nav>
+    <a href="#" class="btn btn-primary">Подключиться</a>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="price-hero">
+      <h1>Выбери свой уровень свободы</h1>
+      <p>Честные цены. Больше трафика с каждым шагом.</p>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- 1 месяц -->
+      <div class="price-card">
+        <div class="card-icon"><i class="fas fa-feather-alt"></i></div>
+        <h3>1 месяц</h3>
+        <div class="price-wrapper">
+          <span class="price">149 ₽<small>/мес</small></span>
+        </div>
+        <div class="price-period">≈ 149 ₽ всего</div>
+        <ul class="features-list">
+          <li><i class="fas fa-check-circle"></i> 45 ГБ трафика</li>
+          <li><i class="fas fa-check-circle"></i> 3 устройства</li>
+          <li><i class="fas fa-check-circle"></i> 4 страны</li>
+          <li><i class="fas fa-check-circle"></i> Torrent-блокировка</li>
+        </ul>
+        <a href="#" class="btn btn-price">Выбрать</a>
+      </div>
+
+      <!-- 3 месяца (-10%) -->
+      <div class="price-card">
+        <div class="discount-badge">−10%</div>
+        <div class="card-icon"><i class="fas fa-calendar-alt"></i></div>
+        <h3>3 месяца</h3>
+        <div class="price-wrapper">
+          <span class="price">399 ₽<small>/3 мес</small></span>
+          <span class="old-price">447 ₽</span>
+        </div>
+        <div class="price-period">≈ 133 ₽/мес</div>
+        <ul class="features-list">
+          <li><i class="fas fa-check-circle"></i> 70 ГБ/мес</li>
+          <li><i class="fas fa-check-circle"></i> 4 устройства</li>
+          <li><i class="fas fa-check-circle"></i> Приоритетная поддержка</li>
+          <li><i class="fas fa-check-circle"></i> Все серверы</li>
+        </ul>
+        <a href="#" class="btn btn-price">Выбрать</a>
+      </div>
+
+      <!-- 6 месяцев (-15%) новая цена 749 ₽, старая 880 -->
+      <div class="price-card">
+        <div class="discount-badge">−15%</div>
+        <div class="card-icon"><i class="fas fa-calendar-week"></i></div>
+        <h3>6 месяцев</h3>
+        <div class="price-wrapper">
+          <span class="price">749 ₽<small>/6 мес</small></span>
+          <span class="old-price">880 ₽</span>
+        </div>
+        <div class="price-period">≈ 124.8 ₽/мес</div>
+        <ul class="features-list">
+          <li><i class="fas fa-check-circle"></i> 100 ГБ/мес</li>
+          <li><i class="fas fa-check-circle"></i> 5 устройств</li>
+          <li><i class="fas fa-check-circle"></i> Приоритетная поддержка</li>
+          <li><i class="fas fa-check-circle"></i> Все серверы</li>
+        </ul>
+        <a href="#" class="btn btn-price">Выбрать</a>
+      </div>
+
+      <!-- 12 месяцев (-20%) -->
+      <div class="price-card card-popular">
+        <div class="popular-badge">🔥 Best value</div>
+        <div class="discount-badge">−20%</div>
+        <div class="card-icon"><i class="fas fa-crown"></i></div>
+        <h3>12 месяцев</h3>
+        <div class="price-wrapper">
+          <span class="price">1 390 ₽<small>/год</small></span>
+          <span class="old-price">1 788 ₽</span>
+        </div>
+        <div class="price-period">≈ 115.8 ₽/мес</div>
+        <ul class="features-list">
+          <li><i class="fas fa-check-circle"></i> <strong>Безлимитный трафик</strong></li>
+          <li><i class="fas fa-check-circle"></i> До 10 устройств</li>
+          <li><i class="fas fa-check-circle"></i> Эксклюзивные серверы</li>
+          <li><i class="fas fa-check-circle"></i> Приоритет 24/7</li>
+        </ul>
+        <a href="#" class="btn btn-price">Выбрать</a>
+      </div>
+    </div>
+
+    <div class="compare-section">
+      <h2>Сравни все фишки</h2>
+      <div class="compare-grid">
+        <div class="compare-item"><h4>🚀 Скорость</h4><div class="compare-value">1 Гбит/с</div><div>на всех тарифах</div></div>
+        <div class="compare-item"><h4>🌍 Серверы</h4><div class="compare-value">4 страны</div><div>RU, EE, DE, NL</div></div>
+        <div class="compare-item"><h4>🔐 Шифрование</h4><div class="compare-value">256‑бит</div><div>AES</div></div>
+        <div class="compare-item"><h4>🧪 Пробный</h4><div class="compare-value">3 дня</div><div>бесплатно</div></div>
+      </div>
+    </div>
+
+    <div class="faq-section">
+      <h2>Частые вопросы</h2>
+      <div class="faq-item"><div class="faq-question">Можно ли сменить тариф? <i class="fas fa-chevron-down"></i></div><div class="faq-answer">Да, в любое время в личном кабинете.</div></div>
+      <div class="faq-item"><div class="faq-question">Что такое «безлимитный трафик»? <i class="fas fa-chevron-down"></i></div><div class="faq-answer">На годовом тарифе трафик не ограничен.</div></div>
+      <div class="faq-item"><div class="faq-question">Как получить пробные 3 дня? <i class="fas fa-chevron-down"></i></div><div class="faq-answer">Просто зарегистрируйтесь, пробный период активируется автоматически.</div></div>
+      <div class="faq-item"><div class="faq-question">Какие способы оплаты? <i class="fas fa-chevron-down"></i></div><div class="faq-answer">Банковские карты, СБП, криптовалюта (USDT, BTC).</div></div>
+    </div>
+  </div>
+
+  <div class="cta-prices">
+    <div class="container">
+      <h3>Всё ещё думаешь?</h3>
+      <p style="margin-bottom: 28px;">Попробуй 3 дня бесплатно — оцени качество.</p>
+      <a href="#" class="btn btn-primary" style="font-size: 16px; padding: 14px 36px;">Начать 3 дня бесплатно →</a>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col"><h4>Навигация</h4><a href="index.html">Главная</a><a href="features.html">Возможности</a><a href="prices.html">Цены</a><a href="#">FAQ</a><a href="#">Инструкции</a><div class="social-icons"><a href="#"><i class="fab fa-telegram"></i></a></div></div>
+      <div class="footer-col"><h4>Ресурсы</h4><a href="#">Бонусы за друзей</a><a href="#">Status Page</a><a href="#">Мой IP</a></div>
+      <div class="footer-col"><h4>Правовая</h4><a href="#">Политики и условия</a><a href="#">Отменить подписку</a><a href="#">Конфиденциальность</a></div>
+      <div class="footer-col"><h4>О нас</h4><a href="#">О компании</a><a href="#">Связаться с нами</a></div>
+    </div>
+    <div class="footer-bottom"><div>© 2026 INFINDA · Private Network</div><div><a href="#">Telegram</a> • <a href="#">Русский</a></div></div>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.faq-question').forEach(q => {
+    q.addEventListener('click', () => { q.parentElement.classList.toggle('open'); });
+  });
+</script>
+</body>
+</html>

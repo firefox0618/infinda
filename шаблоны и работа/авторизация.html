@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>INFINDA — Вход и регистрация</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #010103;
+      --text: #f5f5f7;
+      --muted: #9b9ba6;
+      --line: rgba(255,255,255,.08);
+      --purple: #8b5cff;
+      --cyan: #19d7ff;
+      --green: #55ff96;
+      --error: #ff4d4d;
+    }
+
+    body {
+      font-family: "Manrope", sans-serif;
+      background: #010103;
+      color: var(--text);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* АНИМИРОВАННЫЙ ФОН */
+    .animated-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background: #010103;
+    }
+    .animated-bg::before {
+      content: '';
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      top: -50%;
+      left: -50%;
+      background: 
+        radial-gradient(circle at 30% 40%, rgba(139,92,255,0.12) 0%, transparent 40%),
+        radial-gradient(circle at 70% 80%, rgba(25,215,255,0.08) 0%, transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(85,255,150,0.05) 0%, transparent 50%);
+      animation: slowShift 24s infinite alternate ease-in-out;
+      pointer-events: none;
+    }
+    @keyframes slowShift {
+      0% { transform: translate(0%,0%) rotate(0deg); opacity: 0.5; }
+      100% { transform: translate(-4%,-2%) rotate(2deg); opacity: 0.7; }
+    }
+
+    .floating-particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+    }
+    .particle {
+      position: absolute;
+      background: rgba(139,92,255,0.1);
+      border-radius: 50%;
+      filter: blur(40px);
+      animation: floatParticle 22s infinite alternate;
+    }
+    .p1 { width: 280px; height: 280px; top: 5%; left: -5%; }
+    .p2 { width: 420px; height: 420px; bottom: -10%; right: -10%; background: rgba(25,215,255,0.08); animation-duration: 28s; }
+    .p3 { width: 200px; height: 200px; top: 50%; right: 15%; background: rgba(85,255,150,0.06); animation-duration: 18s; }
+    @keyframes floatParticle {
+      0% { transform: translate(0,0) scale(1); opacity: 0.4; }
+      100% { transform: translate(30px, -25px) scale(1.15); opacity: 0.7; }
+    }
+
+    /* ХЕДЕР */
+    header {
+      height: 72px;
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+      background: rgba(1,1,3,.85);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .container {
+      width: min(1280px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+    .nav {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: white;
+      text-decoration: none;
+      letter-spacing: 6px;
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .mark {
+      width: 34px;
+      height: 30px;
+      clip-path: polygon(50% 0%,100% 100%,82% 100%,50% 30%,18% 100%,0 100%);
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      filter: drop-shadow(0 0 10px rgba(139,92,255,.5));
+    }
+    .back-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: 0.2s;
+    }
+    .back-link:hover {
+      color: white;
+    }
+
+    /* КАРТОЧКА ФОРМЫ */
+    .auth-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 50px 20px;
+    }
+    .auth-card {
+      background: rgba(12, 14, 22, 0.65);
+      backdrop-filter: blur(20px);
+      border-radius: 48px;
+      border: 1px solid rgba(255,255,255,0.08);
+      width: 100%;
+      max-width: 500px;
+      padding: 42px 36px;
+      transition: all 0.3s ease;
+      box-shadow: 0 25px 40px rgba(0,0,0,0.3);
+    }
+    .auth-card:hover {
+      border-color: rgba(139,92,255,0.4);
+      transform: translateY(-3px);
+    }
+
+    /* ВКЛАДКИ */
+    .tabs {
+      display: flex;
+      gap: 12px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 60px;
+      padding: 6px;
+      margin-bottom: 36px;
+    }
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      padding: 12px 0;
+      border-radius: 60px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #aaa;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--purple), var(--cyan));
+      color: white;
+      box-shadow: 0 4px 12px rgba(139,92,255,0.3);
+    }
+
+    /* ФОРМЫ */
+    .form {
+      display: none;
+      animation: fadeInUp 0.4s ease;
+    }
+    .form.active {
+      display: block;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ПОЛЯ ВВОДА */
+    .input-group {
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .input-icon {
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--cyan);
+      font-size: 18px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 16px 20px 16px 52px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--line);
+      border-radius: 60px;
+      color: white;
+      font-size: 15px;
+      font-weight: 500;
+      transition: all 0.25s;
+      outline: none;
+    }
+    .input-group input:focus {
+      border-color: var(--cyan);
+      background: rgba(25,215,255,0.08);
+      box-shadow: 0 0 0 3px rgba(25,215,255,0.15);
+    }
+    .password-field {
+      position: relative;
+    }
+    .password-field input {
+      padding-right: 52px;
+    }
+    .toggle-password {
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 18px;
+      transition: 0.2s;
+      z-index: 2;
+    }
+    .toggle-password:hover {
+      color: var(--cyan);
+    }
+
+    /* КАСТОМНЫЙ ЧЕКБОКС (простой и надёжный) */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 16px 0 24px;
+      cursor: pointer;
+    }
+    .checkbox-group input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1.5px solid var(--line);
+      border-radius: 6px;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .checkbox-group input[type="checkbox"]:checked {
+      background: linear-gradient(135deg, var(--purple), var(--cyan));
+      border-color: transparent;
+      box-shadow: 0 0 10px rgba(139,92,255,0.5);
+    }
+    .checkbox-group input[type="checkbox"]::after {
+      content: "✓";
+      font-size: 14px;
+      font-weight: bold;
+      color: white;
+      opacity: 0;
+      transition: all 0.15s ease;
+      display: inline-block;
+      line-height: 1;
+    }
+    .checkbox-group input[type="checkbox"]:checked::after {
+      opacity: 1;
+    }
+    .checkbox-group label {
+      font-size: 14px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .checkbox-group:hover input[type="checkbox"]:not(:checked) {
+      border-color: var(--cyan);
+      box-shadow: 0 0 6px rgba(25,215,255,0.4);
+    }
+    .checkbox-group:hover label {
+      color: #ddd;
+    }
+    .checkbox-group input[type="checkbox"]:checked ~ label {
+      color: var(--cyan);
+    }
+    /* Ссылки внутри лейбла (правила, политика) */
+    .terms-link {
+      color: var(--cyan);
+      text-decoration: none;
+      transition: 0.2s;
+    }
+    .terms-link:hover {
+      text-decoration: underline;
+    }
+
+    /* КНОПКА ОТПРАВКИ */
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #1fbfff, #8b5cff);
+      border: none;
+      border-radius: 60px;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 8px;
+      box-shadow: 0 4px 15px rgba(139,92,255,0.3);
+    }
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(139,92,255,0.5);
+    }
+
+    /* ДОПОЛНИТЕЛЬНЫЕ ССЫЛКИ */
+    .extra-links {
+      text-align: right;
+      margin: 16px 0 8px;
+      font-size: 13px;
+    }
+    .extra-links a {
+      color: var(--muted);
+      text-decoration: none;
+      transition: 0.2s;
+    }
+    .extra-links a:hover {
+      color: var(--cyan);
+    }
+
+    /* TELEGRAM */
+    .telegram-auth {
+      margin-top: 28px;
+      text-align: center;
+      border-top: 1px solid var(--line);
+      padding-top: 28px;
+    }
+    .btn-telegram {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(25,215,255,0.08);
+      border: 1px solid rgba(25,215,255,0.2);
+      border-radius: 60px;
+      padding: 12px 28px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--cyan);
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn-telegram:hover {
+      background: rgba(25,215,255,0.15);
+      transform: translateY(-2px);
+      border-color: var(--cyan);
+    }
+
+    /* ОШИБКИ */
+    .error-message {
+      color: var(--error);
+      font-size: 12px;
+      margin-top: 6px;
+      margin-left: 20px;
+      display: block;
+      opacity: 0;
+      transition: 0.2s;
+    }
+    .error-message.visible {
+      opacity: 1;
+    }
+
+    /* ФУТЕР */
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 20px 0;
+      text-align: center;
+      font-size: 12px;
+      color: #777;
+    }
+
+    @media (max-width: 540px) {
+      .auth-card {
+        padding: 32px 24px;
+      }
+      .tab-btn {
+        font-size: 14px;
+        padding: 10px 0;
+      }
+      .input-group input {
+        padding: 14px 16px 14px 48px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="animated-bg"></div>
+<div class="floating-particles">
+  <div class="particle p1"></div>
+  <div class="particle p2"></div>
+  <div class="particle p3"></div>
+</div>
+
+<header>
+  <div class="container nav">
+    <a href="index.html" class="brand">
+      <div class="mark"></div>
+      INFINDA
+    </a>
+    <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> На главную</a>
+  </div>
+</header>
+
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="tabs">
+      <button class="tab-btn active" data-form="login">Вход</button>
+      <button class="tab-btn" data-form="register">Регистрация</button>
+    </div>
+
+    <!-- ФОРМА ВХОДА -->
+    <div id="login-form" class="form active">
+      <div class="input-group">
+        <i class="fas fa-envelope input-icon"></i>
+        <input type="email" id="login-email" placeholder="Email" autocomplete="email">
+        <div class="error-message" id="login-email-error"></div>
+      </div>
+      <div class="input-group password-field">
+        <i class="fas fa-lock input-icon"></i>
+        <input type="password" id="login-password" placeholder="Пароль">
+        <button class="toggle-password" data-target="login-password" aria-label="Показать/скрыть пароль">
+          <i class="fas fa-eye-slash"></i>
+        </button>
+        <div class="error-message" id="login-password-error"></div>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="remember-me">
+        <label for="remember-me">Запомнить меня</label>
+      </div>
+      <div class="extra-links">
+        <a href="#" id="forgot-password">Забыли пароль?</a>
+      </div>
+      <button class="btn-submit" id="login-btn">Войти →</button>
+      <div class="telegram-auth">
+        <button class="btn-telegram" id="telegram-login"><i class="fab fa-telegram"></i> Войти через Telegram</button>
+      </div>
+    </div>
+
+    <!-- ФОРМА РЕГИСТРАЦИИ -->
+    <div id="register-form" class="form">
+      <div class="input-group">
+        <i class="fas fa-user input-icon"></i>
+        <input type="text" id="reg-name" placeholder="Имя (необязательно)">
+      </div>
+      <div class="input-group">
+        <i class="fas fa-envelope input-icon"></i>
+        <input type="email" id="reg-email" placeholder="Email">
+        <div class="error-message" id="reg-email-error"></div>
+      </div>
+      <div class="input-group password-field">
+        <i class="fas fa-lock input-icon"></i>
+        <input type="password" id="reg-password" placeholder="Пароль (минимум 6 символов)">
+        <button class="toggle-password" data-target="reg-password" aria-label="Показать/скрыть пароль">
+          <i class="fas fa-eye-slash"></i>
+        </button>
+        <div class="error-message" id="reg-password-error"></div>
+      </div>
+      <div class="input-group password-field">
+        <i class="fas fa-check-circle input-icon"></i>
+        <input type="password" id="reg-password-confirm" placeholder="Подтвердите пароль">
+        <button class="toggle-password" data-target="reg-password-confirm" aria-label="Показать/скрыть пароль">
+          <i class="fas fa-eye-slash"></i>
+        </button>
+        <div class="error-message" id="reg-confirm-error"></div>
+      </div>
+
+      <!-- ЧЕКБОКС СОГЛАСИЯ -->
+      <div class="checkbox-group">
+        <input type="checkbox" id="terms-agree">
+        <label for="terms-agree">
+          Я принимаю <a href="#" class="terms-link" target="_blank">условия использования</a> и 
+          <a href="#" class="terms-link" target="_blank">политику конфиденциальности</a>
+        </label>
+      </div>
+      <div class="error-message" id="terms-error"></div>
+
+      <button class="btn-submit" id="register-btn">Зарегистрироваться →</button>
+      <div class="telegram-auth">
+        <button class="btn-telegram" id="telegram-register"><i class="fab fa-telegram"></i> Регистрация через Telegram</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="container">
+    <div>© 2026 INFINDA · Private Network</div>
+  </div>
+</footer>
+
+<script>
+  // ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const loginForm = document.getElementById('login-form');
+  const registerForm = document.getElementById('register-form');
+
+  function switchTab(formId) {
+    if (formId === 'login') {
+      loginForm.classList.add('active');
+      registerForm.classList.remove('active');
+      tabBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-form') === 'login');
+      });
+    } else {
+      registerForm.classList.add('active');
+      loginForm.classList.remove('active');
+      tabBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-form') === 'register');
+      });
+    }
+    document.querySelectorAll('.error-message').forEach(el => {
+      el.innerText = '';
+      el.classList.remove('visible');
+    });
+  }
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.getAttribute('data-form')));
+  });
+
+  // ПОКАЗ/СКРЫТИЕ ПАРОЛЯ
+  const toggleButtons = document.querySelectorAll('.toggle-password');
+  toggleButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      }
+    });
+  });
+
+  // УТИЛИТЫ ОШИБОК
+  function showError(elementId, message) {
+    const errorEl = document.getElementById(elementId);
+    if (errorEl) {
+      errorEl.innerText = message;
+      errorEl.classList.add('visible');
+    }
+  }
+  function clearErrors() {
+    document.querySelectorAll('.error-message').forEach(el => {
+      el.innerText = '';
+      el.classList.remove('visible');
+    });
+  }
+
+  function isValidEmail(email) {
+    return /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/.test(email);
+  }
+
+  // ВХОД
+  document.getElementById('login-btn').addEventListener('click', () => {
+    clearErrors();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    let isValid = true;
+
+    if (!email) {
+      showError('login-email-error', 'Введите email');
+      isValid = false;
+    } else if (!isValidEmail(email)) {
+      showError('login-email-error', 'Некорректный email');
+      isValid = false;
+    }
+    if (!password) {
+      showError('login-password-error', 'Введите пароль');
+      isValid = false;
+    }
+
+    if (isValid) {
+      alert('✅ Демо-вход выполнен! (перенаправление на главную)');
+      // window.location.href = 'index.html';
+    }
+  });
+
+  // РЕГИСТРАЦИЯ
+  document.getElementById('register-btn').addEventListener('click', () => {
+    clearErrors();
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const confirm = document.getElementById('reg-password-confirm').value;
+    const termsChecked = document.getElementById('terms-agree').checked;
+    let isValid = true;
+
+    if (!email) {
+      showError('reg-email-error', 'Введите email');
+      isValid = false;
+    } else if (!isValidEmail(email)) {
+      showError('reg-email-error', 'Некорректный email');
+      isValid = false;
+    }
+    if (!password) {
+      showError('reg-password-error', 'Введите пароль');
+      isValid = false;
+    } else if (password.length < 6) {
+      showError('reg-password-error', 'Пароль должен быть не менее 6 символов');
+      isValid = false;
+    }
+    if (password !== confirm) {
+      showError('reg-confirm-error', 'Пароли не совпадают');
+      isValid = false;
+    }
+    if (!termsChecked) {
+      showError('terms-error', 'Необходимо принять условия использования и политику конфиденциальности');
+      isValid = false;
+    }
+
+    if (isValid) {
+      alert(`✅ Демо-регистрация успешна! Добро пожаловать, ${name || 'пользователь'}!`);
+      // window.location.href = 'index.html';
+    }
+  });
+
+  // ЗАБЫЛИ ПАРОЛЬ
+  document.getElementById('forgot-password').addEventListener('click', (e) => {
+    e.preventDefault();
+    alert('📩 Функция восстановления пароля будет доступна в личном кабинете. Обратитесь в поддержку Telegram.');
+  });
+
+  // TELEGRAM
+  document.getElementById('telegram-login').addEventListener('click', () => {
+    alert('🤖 Вы будете перенаправлены в Telegram-бота для авторизации.');
+  });
+  document.getElementById('telegram-register').addEventListener('click', () => {
+    alert('🤖 Вы будете перенаправлены в Telegram-бота для регистрации.');
+  });
+
+  // Чтобы ссылки в чекбоксе не переключали чекбокс
+  document.querySelectorAll('.terms-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  });
+</script>
+</body>
+</html>
