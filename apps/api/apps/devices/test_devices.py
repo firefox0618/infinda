@@ -5,6 +5,8 @@ from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
+from apps.activity.models import UserActivity
+
 from .models import Device
 
 
@@ -52,6 +54,20 @@ class DevicesApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
+        self.assertEqual(
+            set(response.data[0].keys()),
+            {
+                "id",
+                "name",
+                "icon",
+                "ip",
+                "last_seen",
+                "status",
+                "platform_name",
+                "client_name",
+                "meta",
+            },
+        )
         self.assertEqual(response.data[0]["name"], "Windows PC")
         self.assertEqual(response.data[0]["meta"], "Windows 11 · Chrome 125")
 
@@ -62,6 +78,27 @@ class DevicesApiTests(APITestCase):
         self.device.refresh_from_db()
         self.assertIsNotNone(self.device.revoked_at)
         self.assertEqual(self.device.status, Device.Status.OFFLINE)
+        self.assertTrue(
+            UserActivity.objects.filter(
+                user=self.user,
+                action=UserActivity.Action.DEVICE_REVOKED,
+                metadata__device_id=self.device.id,
+            ).exists()
+        )
 
         list_response = self.client.get("/api/devices/")
         self.assertEqual(list_response.data, [])
+
+    def test_revoke_device_rejects_foreign_device(self):
+        response = self.client.post(f"/api/devices/{self.other_device.id}/revoke/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data["error"]["code"], "NOT_FOUND")
+
+    def test_list_devices_returns_empty_list_for_user_without_devices(self):
+        self.device.delete()
+
+        response = self.client.get("/api/devices/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])

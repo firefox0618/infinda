@@ -3,8 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { fetchCurrentUser } from "@/shared/auth/auth-client";
+import { AuthRequestError, fetchCurrentUser } from "@/shared/auth/auth-client";
 import { clearAuthSession, readAuthToken } from "@/shared/auth/auth-storage";
+import { navigateToErrorPage } from "@/shared/navigation/error-page-navigation";
 
 import styles from "./auth-page.module.css";
 
@@ -37,9 +38,18 @@ export function AuthPage() {
           router.replace("/cabinet");
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!isCancelled) {
-          clearAuthSession();
+          if (
+            error instanceof AuthRequestError &&
+            (error.errorCode === "AUTHENTICATION_FAILED" ||
+              error.errorCode === "NOT_AUTHENTICATED")
+          ) {
+            clearAuthSession();
+            return;
+          }
+
+          navigateToErrorPage(router, "500");
         }
       });
 

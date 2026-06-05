@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@infinda/shared": ["../../packages/shared/src/index.ts"],
+      "@infinda/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": [

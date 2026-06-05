@@ -14,10 +14,14 @@ type SubscriptionDetail = {
 };
 
 type CabinetSubscriptionPanelProps = {
-  mainLink: string;
-  countries: readonly CountryLink[];
+  subscription: {
+    status: "none" | "trial" | "active" | "expired";
+    isTrial: boolean;
+    mainLink: string | null;
+    countries: readonly CountryLink[];
+  };
   selectedCountryCode: string;
-  selectedCountryUrl: string;
+  selectedCountryUrl: string | null;
   details: readonly SubscriptionDetail[];
   mainCopyLabel: string;
   serverCopyLabel: string;
@@ -28,8 +32,7 @@ type CabinetSubscriptionPanelProps = {
 };
 
 export function CabinetSubscriptionPanel({
-  mainLink,
-  countries,
+  subscription,
   selectedCountryCode,
   selectedCountryUrl,
   details,
@@ -40,8 +43,65 @@ export function CabinetSubscriptionPanel({
   onCopyMainLink,
   onCopyCountryLink,
 }: CabinetSubscriptionPanelProps) {
+  if (subscription.status === "none") {
+    return (
+      <div className={styles.subscriptionLayout}>
+        <article className={styles.subscriptionPanel}>
+          <div className={styles.panelHead}>
+            <div>
+              <div className={styles.panelTitle}>Подписка</div>
+              <div className={styles.panelSub}>Ссылки и маршруты появятся после оформления доступа</div>
+            </div>
+          </div>
+          <div className={styles.panelBody}>
+            <div className={styles.emptyState}>
+              <strong>У вас пока нет активной подписки</strong>
+              <p>Оформите подписку, чтобы получить основную ссылку, маршруты по странам и лимит устройств.</p>
+              <div>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={onOpenRenew}
+                >
+                  Оформить подписку
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    );
+  }
+
+  const isExpired = subscription.status === "expired";
+  const expiredTitle = subscription.isTrial ? "Триал закончился" : "Подписка закончилась";
+
   return (
     <div className={styles.subscriptionLayout}>
+      {isExpired ? (
+        <article className={styles.subscriptionPanel}>
+          <div className={styles.panelHead}>
+            <div>
+              <div className={styles.panelTitle}>{expiredTitle}</div>
+              <div className={styles.panelSub}>Оформите новый доступ, чтобы снова использовать рабочие ссылки</div>
+            </div>
+            <button
+              type="button"
+              className={styles.topButton}
+              onClick={onOpenRenew}
+            >
+              Оформить подписку
+            </button>
+          </div>
+          <div className={styles.panelBody}>
+            <div className={styles.emptyState}>
+              <strong>{expiredTitle}</strong>
+              <p>Текущий доступ завершился. После продления снова станут доступны маршруты и подключение устройств.</p>
+            </div>
+          </div>
+        </article>
+      ) : null}
+
       <article className={styles.subscriptionPanel}>
         <div className={styles.panelHead}>
           <div>
@@ -57,20 +117,27 @@ export function CabinetSubscriptionPanel({
           </button>
         </div>
         <div className={styles.panelBody}>
-          <div className={styles.subscriptionBlock}>
-            <div className={styles.subscriptionBlockLabel}>Основной URL</div>
-            <div className={styles.compactSubscriptionRow}>
-              <div className={styles.compactUrlPanel}>{mainLink}</div>
-              <button
-                type="button"
-                className={styles.copyButton}
-                onClick={onCopyMainLink}
-              >
-                <CopyIcon />
-                <span>{mainCopyLabel}</span>
-              </button>
+          {subscription.mainLink && !isExpired ? (
+            <div className={styles.subscriptionBlock}>
+              <div className={styles.subscriptionBlockLabel}>Основной URL</div>
+              <div className={styles.compactSubscriptionRow}>
+                <div className={styles.compactUrlPanel}>{subscription.mainLink}</div>
+                <button
+                  type="button"
+                  className={styles.copyButton}
+                  onClick={onCopyMainLink}
+                >
+                  <CopyIcon />
+                  <span>{mainCopyLabel}</span>
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className={styles.emptyState}>
+              <strong>{expiredTitle}</strong>
+              <p>Рабочая ссылка появится снова после продления подписки.</p>
+            </div>
+          )}
         </div>
       </article>
 
@@ -83,36 +150,49 @@ export function CabinetSubscriptionPanel({
             </div>
           </div>
           <div className={styles.panelBody}>
-            <div className={styles.countryButtons}>
-              {countries.map((country) => (
-                <button
-                  key={country.code}
-                  type="button"
-                  className={`${styles.countryButton} ${
-                    selectedCountryCode === country.code
-                      ? styles.countryButtonActive
-                      : ""
-                  }`}
-                  onClick={() => onSelectCountry(country.code)}
-                >
-                  {country.label}
-                </button>
-              ))}
-            </div>
-            <div className={styles.subscriptionBlock}>
-              <div className={styles.subscriptionBlockLabel}>Выбранный маршрут</div>
-              <div className={styles.compactSubscriptionRow}>
-                <div className={styles.compactUrlPanel}>{selectedCountryUrl}</div>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={onCopyCountryLink}
-                >
-                  <CopyIcon />
-                  <span>{serverCopyLabel}</span>
-                </button>
+            {subscription.countries.length > 0 && !isExpired ? (
+              <>
+                <div className={styles.countryButtons}>
+                  {subscription.countries.map((country) => (
+                    <button
+                      key={country.code}
+                      type="button"
+                      className={`${styles.countryButton} ${
+                        selectedCountryCode === country.code
+                          ? styles.countryButtonActive
+                          : ""
+                      }`}
+                      onClick={() => onSelectCountry(country.code)}
+                    >
+                      {country.label}
+                    </button>
+                  ))}
+                </div>
+                <div className={styles.subscriptionBlock}>
+                  <div className={styles.subscriptionBlockLabel}>Выбранный маршрут</div>
+                  <div className={styles.compactSubscriptionRow}>
+                    <div className={styles.compactUrlPanel}>{selectedCountryUrl}</div>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={onCopyCountryLink}
+                    >
+                      <CopyIcon />
+                      <span>{serverCopyLabel}</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className={styles.emptyState}>
+                <strong>{isExpired ? "Маршруты недоступны" : "Маршруты пока не подготовлены"}</strong>
+                <p>
+                  {isExpired
+                    ? "После продления здесь снова появятся ссылки по странам."
+                    : "Маршруты появятся после активации подписки."}
+                </p>
               </div>
-            </div>
+            )}
           </div>
         </article>
 

@@ -8,7 +8,9 @@ import {
   AuthRequestError,
   fetchCurrentUser,
   loginWithPassword,
+  registerWithPassword,
 } from "@/shared/auth/auth-client";
+import { navigateToErrorPage } from "@/shared/navigation/error-page-navigation";
 import {
   clearAuthSession,
   persistAuthSession,
@@ -36,6 +38,7 @@ type FieldErrors = {
 };
 
 type LoginState = "idle" | "loading" | "success" | "error";
+type RegisterState = "idle" | "loading" | "success" | "error";
 
 export function AuthPanel() {
   const router = useRouter();
@@ -56,6 +59,8 @@ export function AuthPanel() {
   const [registerTerms, setRegisterTerms] = useState(false);
   const [loginState, setLoginState] = useState<LoginState>("idle");
   const [loginStatusText, setLoginStatusText] = useState("");
+  const [registerState, setRegisterState] = useState<RegisterState>("idle");
+  const [registerStatusText, setRegisterStatusText] = useState("");
   const panelId = useId();
   const timersRef = useRef<number[]>([]);
 
@@ -155,15 +160,18 @@ export function AuthPanel() {
         }));
         setLoginStatusText(error.message);
       } else {
-        setLoginStatusText("Не удалось выполнить вход. Попробуй снова.");
+        navigateToErrorPage(router, "500");
+        return;
       }
 
       setLoginState("error");
     }
   };
 
-  const handleRegisterSubmit = () => {
+  const handleRegisterSubmit = async () => {
     const nextErrors: FieldErrors = {};
+    const normalizedEmail = registerEmail.trim();
+    const registrationPassword = registerPassword;
 
     if (!validateEmail(registerEmail)) {
       nextErrors.registerEmail = "Укажи корректный email.";
@@ -182,6 +190,77 @@ export function AuthPanel() {
     }
 
     setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      setRegisterState("error");
+      setRegisterStatusText("Проверь данные регистрации.");
+      return;
+    }
+
+    setErrors({});
+    setRegisterState("loading");
+    setRegisterStatusText("Создаем учетную запись…");
+
+    try {
+      const response = await registerWithPassword({
+        name: registerName.trim() || undefined,
+        email: normalizedEmail,
+        password: registrationPassword,
+      });
+
+      setRegisterState("success");
+      setRegisterStatusText("Пользователь зарегистрирован. Выполняем вход…");
+      setRegisterName("");
+      setRegisterEmail("");
+      setRegisterPassword("");
+      setRegisterPasswordConfirm("");
+      setRegisterTerms(false);
+      setLoginEmail(response.user.email);
+      setLoginPassword("");
+      setLoginState("loading");
+      setLoginStatusText("Выполняем вход в новый аккаунт…");
+
+      const loginSession = await loginWithPassword({
+        email: normalizedEmail,
+        password: registrationPassword,
+      });
+      const currentUser = await fetchCurrentUser(loginSession.token);
+
+      persistAuthSession(
+        {
+          token: loginSession.token,
+          user: currentUser,
+        },
+        { rememberMe: false },
+      );
+
+      setLoginState("success");
+      setLoginStatusText("Аккаунт создан. Перенаправляем в кабинет…");
+
+      const redirectTimer = window.setTimeout(() => {
+        router.push("/cabinet");
+      }, 900);
+
+      timersRef.current.push(redirectTimer);
+    } catch (error) {
+      clearAuthSession();
+
+      if (error instanceof AuthRequestError) {
+        setErrors((currentErrors) => ({
+          ...currentErrors,
+          registerEmail: error.fieldErrors?.email,
+          registerPassword: error.fieldErrors?.password,
+        }));
+        setRegisterStatusText(error.message);
+      } else {
+        navigateToErrorPage(router, "500");
+        return;
+      }
+
+      setRegisterState("error");
+      setLoginState("idle");
+      setLoginStatusText("");
+    }
   };
 
   return (
@@ -439,11 +518,53 @@ export function AuthPanel() {
 
             <button
               type="button"
-              className={styles.submitButton}
+              className={`${styles.submitButton} ${
+                registerState === "loading"
+                  ? styles.submitButtonLoading
+                  : registerState === "success"
+                    ? styles.submitButtonSuccess
+                    : registerState === "error"
+                      ? styles.submitButtonError
+                      : ""
+              }`}
               onClick={handleRegisterSubmit}
+              disabled={registerState === "loading"}
             >
-              Зарегистрироваться
+              <span className={styles.buttonContent}>
+                {registerState === "loading" ? (
+                  <span className={styles.buttonLoader} aria-hidden="true" />
+                ) : null}
+                {registerState === "success" ? (
+                  <span className={styles.buttonCheck} aria-hidden="true" />
+                ) : null}
+                <span>
+                  {registerState === "loading"
+                    ? "Создаем аккаунт"
+                    : registerState === "success"
+                      ? "Готово"
+                      : registerState === "error"
+                        ? "Повторить"
+                        : "Зарегистрироваться"}
+                </span>
+              </span>
             </button>
+
+            <div
+              className={`${styles.loginStatus} ${
+                registerState !== "idle" ? styles.loginStatusVisible : ""
+              } ${
+                registerState === "loading" ? styles.loginStatusLoading : ""
+              } ${
+                registerState === "success"
+                  ? styles.loginStatusSuccess
+                  : registerState === "error"
+                    ? styles.loginStatusError
+                    : ""
+              }`}
+            >
+              <span className={styles.loginStatusDot} aria-hidden="true" />
+              <span>{registerStatusText}</span>
+            </div>
 
             <div className={styles.telegramSection}>
               <button type="button" className={styles.telegramButton}>

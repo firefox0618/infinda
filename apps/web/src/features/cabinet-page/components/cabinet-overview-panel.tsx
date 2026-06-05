@@ -14,10 +14,15 @@ import {
 
 type CabinetOverviewPanelProps = {
   stats: readonly CabinetOverviewStat[];
-  mainLink: string;
+  subscription: {
+    status: "none" | "trial" | "active" | "expired";
+    isTrial: boolean;
+    mainLink: string | null;
+  } | null;
   devices: readonly CabinetDevice[];
   copyLabel: string;
   onCopyMainLink: () => void;
+  onOpenRenew: () => void;
   onOpenTab: (tab: Extract<CabinetTab, "subscription" | "devices" | "support">) => void;
 };
 
@@ -41,12 +46,29 @@ const quickActions = [
 
 export function CabinetOverviewPanel({
   stats,
-  mainLink,
+  subscription,
   devices,
   copyLabel,
   onCopyMainLink,
+  onOpenRenew,
   onOpenTab,
 }: CabinetOverviewPanelProps) {
+  const subscriptionTitle =
+    subscription?.status === "expired"
+      ? subscription.isTrial
+        ? "Триал закончился"
+        : "Подписка закончилась"
+      : subscription?.status === "none"
+        ? "У вас пока нет активной подписки"
+        : "Основная подписка";
+
+  const subscriptionNote =
+    subscription?.status === "expired"
+      ? "Оформите новый доступ, чтобы снова подключать устройства и маршруты."
+      : subscription?.status === "none"
+        ? "Оформите подписку, чтобы получить ссылку подключения и маршруты."
+        : "Ссылка для подключения устройств";
+
   return (
     <div className={styles.dashboardGrid}>
       <div className={styles.dashboardMain}>
@@ -67,8 +89,8 @@ export function CabinetOverviewPanel({
         <article className={styles.dashboardPanel}>
           <div className={styles.panelHead}>
             <div>
-              <div className={styles.panelTitle}>Основная подписка</div>
-              <div className={styles.panelSub}>Ссылка для подключения устройств</div>
+              <div className={styles.panelTitle}>{subscriptionTitle}</div>
+              <div className={styles.panelSub}>{subscriptionNote}</div>
             </div>
             <span className={styles.panelHeadAccent} aria-hidden="true">
               <SparkIcon />
@@ -76,17 +98,33 @@ export function CabinetOverviewPanel({
           </div>
 
           <div className={styles.panelBody}>
-            <div className={styles.subscriptionRow}>
-              <div className={styles.subscriptionLink}>{mainLink}</div>
-              <button
-                type="button"
-                className={styles.copyButton}
-                onClick={onCopyMainLink}
-              >
-                <CopyIcon />
-                <span>{copyLabel}</span>
-              </button>
-            </div>
+            {subscription && subscription.mainLink && subscription.status !== "expired" ? (
+              <div className={styles.subscriptionRow}>
+                <div className={styles.subscriptionLink}>{subscription.mainLink}</div>
+                <button
+                  type="button"
+                  className={styles.copyButton}
+                  onClick={onCopyMainLink}
+                >
+                  <CopyIcon />
+                  <span>{copyLabel}</span>
+                </button>
+              </div>
+            ) : (
+              <div className={styles.emptyState}>
+                <strong>{subscriptionTitle}</strong>
+                <p>{subscriptionNote}</p>
+                <div>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    onClick={onOpenRenew}
+                  >
+                    Оформить подписку
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </article>
 
@@ -203,7 +241,23 @@ export function CabinetOverviewPanel({
             <div className={styles.statusList}>
               <div className={styles.statusRow}>
                 <span>Подписка</span>
-                <strong>active</strong>
+                <strong
+                  className={`${styles.statusValue} ${
+                    subscription?.status === "trial" || subscription?.status === "active"
+                      ? styles.statusValueActive
+                      : subscription?.status === "expired"
+                        ? styles.statusValueWarning
+                        : styles.statusValueMuted
+                  }`}
+                >
+                  {subscription?.status === "trial"
+                    ? "trial"
+                    : subscription?.status === "active"
+                      ? "active"
+                      : subscription?.status === "expired"
+                        ? "expired"
+                        : "none"}
+                </strong>
               </div>
               <div className={styles.statusRow}>
                 <span>Маршрутизация</span>
@@ -222,10 +276,17 @@ export function CabinetOverviewPanel({
         </article>
 
         <article className={styles.noticeCard}>
-          <strong>Маршруты работают автоматически</strong>
+          <strong>
+            {subscription?.status === "expired" || subscription?.status === "none"
+              ? "Доступ пока не активирован"
+              : "Маршруты работают автоматически"}
+          </strong>
           <p>
-            Привычные сайты открываются напрямую, а нужный трафик проходит
-            через защищенный маршрут.
+            {subscription?.status === "expired"
+              ? "Текущий доступ завершился. Оформите новую подписку, чтобы снова использовать защищенные маршруты."
+              : subscription?.status === "none"
+                ? "После оформления подписки здесь появятся рабочая ссылка, маршруты и доступные лимиты устройств."
+                : "Привычные сайты открываются напрямую, а нужный трафик проходит через защищенный маршрут."}
           </p>
         </article>
       </aside>

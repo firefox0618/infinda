@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
+from apps.activity.models import UserActivity
+
 
 User = get_user_model()
 
@@ -22,6 +24,10 @@ class ProfileApiTests(APITestCase):
         response = self.client.get("/api/profile/me/")
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            set(response.data.keys()),
+            {"id", "username", "email", "first_name", "last_name", "telegram_handle"},
+        )
         self.assertEqual(response.data["email"], "profile@example.com")
         self.assertEqual(response.data["first_name"], "Rudolf")
         self.assertEqual(response.data["telegram_handle"], "")
@@ -47,6 +53,12 @@ class ProfileApiTests(APITestCase):
         self.assertEqual(self.user.last_name, "Naumow")
         self.assertTrue(self.user.check_password("updated-pass-123"))
         self.assertEqual(response.data["telegram_handle"], "@rudolf")
+        self.assertTrue(
+            UserActivity.objects.filter(
+                user=self.user,
+                action=UserActivity.Action.PROFILE_UPDATED,
+            ).exists()
+        )
 
     def test_patch_profile_rejects_password_change_without_current_password(self):
         response = self.client.patch(
@@ -58,7 +70,8 @@ class ProfileApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("current_password", response.data)
+        self.assertEqual(response.data["error"]["code"], "VALIDATION_ERROR")
+        self.assertIn("current_password", response.data["error"]["details"])
 
     def test_patch_profile_rejects_invalid_current_password(self):
         response = self.client.patch(
@@ -71,4 +84,5 @@ class ProfileApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("current_password", response.data)
+        self.assertEqual(response.data["error"]["code"], "VALIDATION_ERROR")
+        self.assertIn("current_password", response.data["error"]["details"])

@@ -236,6 +236,64 @@
   white-space: nowrap;
 }
 
+.profileStatus {
+  min-height: 24px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  font-size: 13px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.26s ease, transform 0.26s ease, color 0.22s ease;
+}
+
+.profileStatusVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.profileStatusLoading {
+  color: #cbe8ff;
+  border-color: rgba(87, 184, 255, 0.18);
+  background: rgba(87, 184, 255, 0.05);
+}
+
+.profileStatusSuccess {
+  color: #bbf7d0;
+  border-color: rgba(85, 229, 154, 0.18);
+  background: rgba(85, 229, 154, 0.05);
+}
+
+.profileStatusError {
+  color: #fda4af;
+  border-color: rgba(251, 113, 133, 0.18);
+  background: rgba(251, 113, 133, 0.06);
+}
+
+.profileStatusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #57b8ff;
+  box-shadow: 0 0 16px rgba(87, 184, 255, 0.9);
+}
+
+.profileStatusSuccess .profileStatusDot {
+  background: #55e59a;
+  box-shadow: 0 0 16px rgba(85, 229, 154, 0.95);
+}
+
+.profileStatusError .profileStatusDot {
+  background: #fb7185;
+  box-shadow: 0 0 16px rgba(251, 113, 133, 0.9);
+}
+
 .sidebarFooter {
   display: grid;
   gap: 10px;
@@ -826,8 +884,23 @@
 }
 
 .statusRow strong {
-  color: #55e59a;
   font-size: 13px;
+}
+
+.statusValue {
+  text-transform: lowercase;
+}
+
+.statusValueActive {
+  color: #55e59a;
+}
+
+.statusValueWarning {
+  color: #fbbf24;
+}
+
+.statusValueMuted {
+  color: #94a3b8;
 }
 
 .noticeCard {

@@ -1,6 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+
+import { navigateToErrorPage } from "@/shared/navigation/error-page-navigation";
 
 import styles from "./resources-page.module.css";
 
@@ -10,6 +13,7 @@ type IpState =
   | { status: "error"; value: string };
 
 export function MyIpCard() {
+  const router = useRouter();
   const [ipState, setIpState] = useState<IpState>({
     status: "loading",
     value: "Определяем IP...",
@@ -45,6 +49,7 @@ export function MyIpCard() {
           status: "error",
           value: "Не удалось определить IP",
         });
+        navigateToErrorPage(router, "503");
       }
     };
 
@@ -53,7 +58,7 @@ export function MyIpCard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [router]);
 
   const refreshIp = async () => {
     setIpState({
@@ -81,6 +86,7 @@ export function MyIpCard() {
         status: "error",
         value: "Не удалось определить IP",
       });
+      navigateToErrorPage(router, "503");
     }
   };
 

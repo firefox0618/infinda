@@ -1,6 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
+from apps.activity.models import UserActivity
+from apps.activity.services import log_user_activity
+
 from .models import UserProfile
 
 
@@ -13,7 +16,7 @@ def get_or_create_profile(*, user: User) -> UserProfile:
 
 
 @transaction.atomic
-def update_profile(*, user: User, data: dict) -> UserProfile:
+def update_profile(*, user: User, data: dict, ip_address: str | None = None) -> UserProfile:
     profile = get_or_create_profile(user=user)
 
     if "email" in data:
@@ -31,4 +34,16 @@ def update_profile(*, user: User, data: dict) -> UserProfile:
         profile.telegram_handle = data["telegram_handle"]
 
     profile.save()
+    changed_fields = sorted(
+        field_name
+        for field_name in ("email", "first_name", "last_name", "telegram_handle", "new_password")
+        if field_name in data
+    )
+    log_user_activity(
+        user=user,
+        action=UserActivity.Action.PROFILE_UPDATED,
+        description="Пользователь обновил данные профиля.",
+        ip_address=ip_address,
+        metadata={"changed_fields": changed_fields},
+    )
     return profile

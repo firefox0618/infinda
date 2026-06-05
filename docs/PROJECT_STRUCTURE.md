@@ -34,5 +34,10 @@ infinda/
 Текущее состояние:
 - Стек выбран и зафиксирован.
 - Каркас `apps/web` и `apps/api` инициализирован.
-- В `apps/web` уже перенесена и дорабатывается страница `главная`.
-- Для frontend уже выделены общие шаблоны: `shared/layout`, `shared/ui`, `shared/styles`.
+- В `apps/web` уже перенесены основные страницы лендинга, auth, cabinet и страницы ошибок.
+- Для frontend уже выделены общие слои `shared/layout`, `shared/ui`, `shared/styles`, `shared/auth`, `shared/config`.
+- В `apps/web/src/app` маршруты остаются тонкими, а основная реализация вынесена в `apps/web/src/features`.
+- В `apps/web` уже есть собственные `/api/*` route handlers как BFF/proxy-слой перед Django API.
+- В `apps/api` уже реализованы доменные приложения `auth`, `profile`, `devices`, `subscription`, `health`.
+- `packages/shared` уже содержит общий слой transport-контрактов и API error-format.
+- `tests` и `infra` пока в основном подготовлены как слоты под следующие этапы, без существенного наполнения.

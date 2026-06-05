@@ -23,6 +23,7 @@ python manage.py runserver
 
 - `GET /api/health/`
 - `POST /api/auth/login/`
+- `POST /api/auth/register/`
 - `POST /api/auth/logout/`
 - `GET /api/auth/me/`
 - `GET /api/profile/me/`
@@ -31,24 +32,15 @@ python manage.py runserver
 - `POST /api/devices/<id>/revoke/`
 - `GET /api/subscription/`
 
-### Локальный demo-пользователь
+## Текущее состояние
 
-Для локальной ручной проверки уже подготовлен пользователь:
-
-- `email / username`: `rudolfnaumow@gmail.com`
-- `password`: `13bozotA)`
-
-Для `Django admin` используются те же данные:
-
-- `http://127.0.0.1:8000/admin`
-
-Также локально уже подготовлены demo-данные:
-
-- профиль `Rudolf Naumow`
-- `Telegram`: `@rudolfnaumow`
-- 3 устройства
-- активная demo-подписка на `12 месяцев`
-- 4 demo-маршрута по странам
+- Приложение организовано по доменным Django-apps.
+- Реализованы модули `auth`, `profile`, `devices`, `subscription`, `health`, `activity`.
+- Для основных API уже есть тесты на уровне доменных приложений.
+- Frontend `apps/web` ходит в backend не напрямую из браузера, а через собственные Next route handlers.
+- Для API настроен единый error-contract: `error.code`, `error.message`, `error.details`.
+- В Django admin добавлен audit-слой: у пользователя видны профиль, ФИО и журнал действий; устройства имеют явный статус `Активно/Отозвано`.
+- Регистрация пользователя теперь работает через backend endpoint `POST /api/auth/register/`.
 
 ## Структура
 
@@ -60,3 +52,5 @@ python manage.py runserver
 - `auth`, `profile`, `devices`, `subscription` уже работают локально.
 - `support` и реальное `продление / оплата` пока не подключены к backend.
 - Продакшн-настройки и внешние интеграции будут добавляться отдельными этапами.
+- Локальные demo-данные могут использоваться для ручной проверки, но конкретные учетные данные не фиксируются в документации проекта.
+- Общие TypeScript transport-контракты хранятся в `packages/shared`; backend пока выровнен с ними через serializer-формы и тесты, а не через прямой импорт.

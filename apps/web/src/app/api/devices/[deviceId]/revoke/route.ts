@@ -1,3 +1,4 @@
+import { devicesApiPaths } from "@infinda/shared/contracts/devices";
 import { proxyBackendAuthRequest } from "@/shared/auth/backend-auth-proxy";
 
 type RouteContext = {
@@ -10,7 +11,7 @@ export async function POST(request: Request, context: RouteContext) {
   const { deviceId } = await context.params;
 
   return proxyBackendAuthRequest({
-    pathname: `devices/${deviceId}/revoke/`,
+    pathname: devicesApiPaths.revoke(deviceId),
     method: "POST",
     authorization: request.headers.get("Authorization"),
   });

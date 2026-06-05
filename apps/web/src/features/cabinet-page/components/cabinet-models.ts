@@ -33,12 +33,16 @@ export type CabinetSubscriptionRoute = {
   url: string;
 };
 
+export type CabinetSubscriptionStatus = "none" | "trial" | "active" | "expired";
+
 export type CabinetSubscription = {
-  planName: string;
-  mainLink: string;
-  activeUntil: string;
+  status: CabinetSubscriptionStatus;
+  isTrial: boolean;
+  planName: string | null;
+  mainLink: string | null;
+  activeUntil: string | null;
   remainingDays: number;
-  maxDevices: number;
+  maxDevices: number | null;
   countries: readonly CabinetSubscriptionRoute[];
 };
 

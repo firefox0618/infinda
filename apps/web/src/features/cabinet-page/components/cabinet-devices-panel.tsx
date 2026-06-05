@@ -24,7 +24,7 @@ export function CabinetDevicesPanel({
         <article className={styles.deviceListItem}>
           <div className={styles.deviceExpanded}>
             <div className={styles.emptyState}>
-              <strong>Подключенных устройств пока нет</strong>
+              <strong>У вас пока нет подключенных устройств</strong>
               <p>После первого входа с клиента здесь появится список активных подключений.</p>
             </div>
           </div>
