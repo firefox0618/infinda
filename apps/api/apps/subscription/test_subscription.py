@@ -1,11 +1,16 @@
+import json
 from datetime import timedelta
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from .models import Subscription, SubscriptionRoute
+from .models import Subscription, SubscriptionPayment, SubscriptionRoute
+from .services import create_trial_subscription
 
 
 User = get_user_model()
@@ -65,15 +70,270 @@ class SubscriptionApiTests(APITestCase):
         response = self.client.get("/api/subscription/")
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            set(response.data.keys()),
+            {
+                "status",
+                "is_trial",
+                "plan_name",
+                "main_link",
+                "active_until",
+                "remaining_days",
+                "max_devices",
+                "countries",
+            },
+        )
+        self.assertEqual(response.data["status"], "active")
+        self.assertFalse(response.data["is_trial"])
         self.assertEqual(response.data["plan_name"], "12 месяцев (безлимит)")
         self.assertEqual(response.data["main_link"], "https://infinda.com/sub/main-abc123")
         self.assertEqual(response.data["max_devices"], 10)
         self.assertEqual(len(response.data["countries"]), 2)
         self.assertEqual(response.data["countries"][0]["code"], "ru")
 
-    def test_get_subscription_requires_existing_subscription(self):
+    def test_get_subscription_returns_none_state_without_subscription(self):
         self.subscription.delete()
 
         response = self.client.get("/api/subscription/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, {"status": "none"})
+
+    def test_get_subscription_returns_expired_state(self):
+        self.subscription.ends_at = timezone.localdate() - timedelta(days=1)
+        self.subscription.save(update_fields=["ends_at"])
+
+        response = self.client.get("/api/subscription/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "expired")
+        self.assertEqual(response.data["remaining_days"], 0)
+
+    def test_create_trial_subscription_creates_default_routes(self):
+        trial_user = User.objects.create_user(
+            username="trial-user",
+            email="trial@example.com",
+            password="trial-pass-123",
+        )
+
+        subscription = create_trial_subscription(user=trial_user)
+
+        self.assertEqual(subscription.plan_name, "Триал 3 дня")
+        self.assertEqual(subscription.remaining_days, 3)
+        self.assertEqual(subscription.max_devices, 3)
+        self.assertEqual(subscription.routes.count(), 3)
+        self.assertEqual(subscription.routes.first().code, "nl")
+
+    def test_get_subscription_plans_returns_catalog(self):
+        response = self.client.get("/api/subscription/plans/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["code"], "1m")
+        self.assertEqual(response.data[-1]["code"], "12m")
+
+    def test_purchase_subscription_creates_paid_subscription(self):
+        buyer = User.objects.create_user(
+            username="buyer",
+            email="buyer@example.com",
+            password="buyer-pass-123",
+        )
+        buyer_token = Token.objects.create(user=buyer)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {buyer_token.key}")
+
+        response = self.client.post(
+            "/api/subscription/purchase/",
+            {"plan_code": "3m"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "active")
+        self.assertEqual(response.data["plan_name"], "3 месяца")
+        self.assertFalse(response.data["is_trial"])
+        self.assertEqual(response.data["max_devices"], 4)
+        self.assertEqual(len(response.data["countries"]), 4)
+
+    def test_purchase_subscription_extends_existing_subscription(self):
+        previous_ends_at = self.subscription.ends_at
+
+        response = self.client.post(
+            "/api/subscription/purchase/",
+            {"plan_code": "1m"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.plan_name, "1 месяц")
+        self.assertEqual(self.subscription.max_devices, 3)
+        self.assertGreater(self.subscription.ends_at, previous_ends_at)
+
+    def test_purchase_subscription_rejects_unknown_plan(self):
+        response = self.client.post(
+            "/api/subscription/purchase/",
+            {"plan_code": "unknown"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "VALIDATION_ERROR")
+
+    @override_settings(
+        PLATEGA_MERCHANT_ID="merchant-1",
+        PLATEGA_SECRET_KEY="secret-1",
+    )
+    def test_checkout_subscription_creates_platega_payment(self):
+        buyer = User.objects.create_user(
+            username="checkout-user",
+            email="checkout@example.com",
+            password="checkout-pass-123",
+        )
+        buyer_token = Token.objects.create(user=buyer)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {buyer_token.key}")
+
+        with patch(
+            "apps.subscription.services.PlategaClient.create_payment",
+            return_value=SimpleNamespace(
+                transaction_id="plat-100",
+                checkout_url="https://pay.platega.example/plat-100",
+                status="PENDING",
+                raw={"transactionId": "plat-100", "redirect": "https://pay.platega.example/plat-100"},
+            ),
+        ):
+            response = self.client.post(
+                "/api/subscription/checkout/",
+                {"plan_code": "3m"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["plan_code"], "3m")
+        self.assertEqual(response.data["provider"], "platega")
+        self.assertEqual(response.data["payment_method"], "sbp")
+        payment = SubscriptionPayment.objects.get(pk=response.data["payment_id"])
+        self.assertEqual(payment.external_payment_id, "plat-100")
+        self.assertEqual(payment.status, SubscriptionPayment.STATUS_PENDING)
+
+    @override_settings(
+        PLATEGA_MERCHANT_ID="merchant-1",
+        PLATEGA_SECRET_KEY="secret-1",
+        PLATEGA_WEBHOOK_SECRET="webhook-secret",
+    )
+    def test_platega_webhook_confirms_payment_and_activates_subscription(self):
+        buyer = User.objects.create_user(
+            username="webhook-user",
+            email="webhook@example.com",
+            password="webhook-pass-123",
+        )
+        payment = SubscriptionPayment.objects.create(
+            user=buyer,
+            plan_code="6m",
+            plan_name="6 месяцев",
+            amount_rub=749,
+            duration_days=180,
+            max_devices=5,
+            provider="platega",
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+            external_payment_id="plat-200",
+            checkout_url="https://pay.platega.example/plat-200",
+        )
+        body = {
+            "id": "plat-200",
+            "status": "CONFIRMED",
+            "paymentMethod": 2,
+            "payload": json.dumps(
+                {
+                    "type": "subscription",
+                    "payment_id": payment.id,
+                    "user_id": buyer.id,
+                    "plan_code": "6m",
+                }
+            ),
+        }
+
+        response = self.client.post(
+            "/api/subscription/webhooks/platega/webhook-secret/",
+            data=json.dumps(body),
+            content_type="application/json",
+            HTTP_X_MERCHANTID="merchant-1",
+            HTTP_X_SECRET="secret-1",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionPayment.STATUS_PAID)
+        self.assertEqual(payment.provider_status, "CONFIRMED")
+        subscription = Subscription.objects.get(user=buyer)
+        self.assertEqual(subscription.plan_name, "6 месяцев")
+        self.assertEqual(subscription.max_devices, 5)
+
+    @override_settings(
+        PLATEGA_MERCHANT_ID="merchant-1",
+        PLATEGA_SECRET_KEY="secret-1",
+        PLATEGA_WEBHOOK_SECRET="webhook-secret",
+    )
+    def test_platega_webhook_is_idempotent_for_confirmed_payment(self):
+        buyer = User.objects.create_user(
+            username="duplicate-user",
+            email="duplicate@example.com",
+            password="duplicate-pass-123",
+        )
+        payment = SubscriptionPayment.objects.create(
+            user=buyer,
+            plan_code="1m",
+            plan_name="1 месяц",
+            amount_rub=149,
+            duration_days=30,
+            max_devices=3,
+            provider="platega",
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+            external_payment_id="plat-300",
+            checkout_url="https://pay.platega.example/plat-300",
+        )
+        body = {
+            "id": "plat-300",
+            "status": "CONFIRMED",
+            "paymentMethod": 2,
+            "payload": json.dumps(
+                {
+                    "type": "subscription",
+                    "payment_id": payment.id,
+                    "user_id": buyer.id,
+                    "plan_code": "1m",
+                }
+            ),
+        }
+
+        first_response = self.client.post(
+            "/api/subscription/webhooks/platega/webhook-secret/",
+            data=json.dumps(body),
+            content_type="application/json",
+            HTTP_X_MERCHANTID="merchant-1",
+            HTTP_X_SECRET="secret-1",
+        )
+        first_subscription = Subscription.objects.get(user=buyer)
+        first_ends_at = first_subscription.ends_at
+
+        second_response = self.client.post(
+            "/api/subscription/webhooks/platega/webhook-secret/",
+            data=json.dumps(body),
+            content_type="application/json",
+            HTTP_X_MERCHANTID="merchant-1",
+            HTTP_X_SECRET="secret-1",
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        first_subscription.refresh_from_db()
+        self.assertEqual(first_subscription.ends_at, first_ends_at)
+
+    def test_platega_webhook_rejects_invalid_secret(self):
+        response = self.client.post(
+            "/api/subscription/webhooks/platega/wrong-secret/",
+            data=json.dumps({"id": "plat-1", "status": "CONFIRMED", "paymentMethod": 2}),
+            content_type="application/json",
+        )
 
         self.assertEqual(response.status_code, 404)

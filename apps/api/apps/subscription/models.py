@@ -53,3 +53,63 @@ class SubscriptionRoute(models.Model):
 
     def __str__(self) -> str:
         return f"{self.subscription.user.email} — {self.label}"
+
+
+class SubscriptionPayment(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_PAID = "paid"
+    STATUS_CANCELED = "canceled"
+    STATUS_FAILED = "failed"
+
+    STATUS_CHOICES = (
+        (STATUS_PENDING, "Ожидает оплаты"),
+        (STATUS_PAID, "Оплачен"),
+        (STATUS_CANCELED, "Отменен"),
+        (STATUS_FAILED, "Ошибка"),
+    )
+
+    PROVIDER_PLATEGA = "platega"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="subscription_payments",
+        verbose_name="Пользователь",
+    )
+    plan_code = models.CharField("Код тарифа", max_length=16)
+    plan_name = models.CharField("Название тарифа", max_length=120)
+    amount_rub = models.PositiveIntegerField("Сумма, RUB")
+    duration_days = models.PositiveSmallIntegerField("Длительность, дней")
+    max_devices = models.PositiveSmallIntegerField("Лимит устройств")
+    provider = models.CharField("Провайдер", max_length=32, default=PROVIDER_PLATEGA)
+    payment_method = models.CharField("Метод оплаты", max_length=32, default="sbp")
+    status = models.CharField(
+        "Статус",
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    external_payment_id = models.CharField(
+        "Внешний ID платежа",
+        max_length=128,
+        blank=True,
+        null=True,
+        unique=True,
+    )
+    checkout_url = models.URLField("Ссылка на оплату", max_length=1000, blank=True)
+    provider_status = models.CharField("Статус провайдера", max_length=32, blank=True)
+    provider_payload = models.JSONField("Payload провайдера", default=dict, blank=True)
+    paid_at = models.DateTimeField("Оплачено", blank=True, null=True)
+    created_at = models.DateTimeField("Создано", auto_now_add=True)
+    updated_at = models.DateTimeField("Обновлено", auto_now=True)
+
+    class Meta:
+        verbose_name = "Платеж подписки"
+        verbose_name_plural = "Платежи подписки"
+        indexes = [
+            models.Index(fields=("user", "status")),
+            models.Index(fields=("provider", "status")),
+        ]
+
+    def __str__(self) -> str:
+        return f"#{self.pk} {self.user.email} {self.plan_name} {self.status}"

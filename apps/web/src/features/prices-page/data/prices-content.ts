@@ -1,4 +1,5 @@
 type PricePlan = {
+  code: "1m" | "3m" | "6m" | "12m";
   icon: "feather" | "calendar" | "semester" | "crown";
   title: string;
   price: string;
@@ -19,6 +20,7 @@ export const pricesHero = {
 
 export const pricePlans: PricePlan[] = [
   {
+    code: "1m",
     icon: "feather",
     title: "1 месяц",
     price: "149 ₽",
@@ -27,6 +29,7 @@ export const pricePlans: PricePlan[] = [
     features: ["45 ГБ трафика", "3 устройства", "4 страны", "Контроль подключений"],
   },
   {
+    code: "3m",
     icon: "calendar",
     title: "3 месяца",
     price: "399 ₽",
@@ -37,6 +40,7 @@ export const pricePlans: PricePlan[] = [
     features: ["70 ГБ/мес", "4 устройства", "Приоритетная поддержка", "Все серверы"],
   },
   {
+    code: "6m",
     icon: "semester",
     title: "6 месяцев",
     price: "749 ₽",
@@ -47,6 +51,7 @@ export const pricePlans: PricePlan[] = [
     features: ["100 ГБ/мес", "5 устройств", "Приоритетная поддержка", "Все серверы"],
   },
   {
+    code: "12m",
     icon: "crown",
     title: "12 месяцев",
     price: "1 390 ₽",

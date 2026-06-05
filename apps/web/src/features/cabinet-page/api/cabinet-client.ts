@@ -3,41 +3,41 @@ import type {
   CabinetProfile,
   CabinetSubscription,
 } from "../components/cabinet-models";
+import {
+  devicesApiPaths,
+  type FilledSubscriptionDto,
+  type SubscriptionCheckoutDto,
+  type PurchaseSubscriptionRequestDto,
+  profileApiPaths,
+  subscriptionApiPaths,
+  type DeviceDto,
+  type ProfileDto,
+  type SubscriptionPlanDto,
+  type SubscriptionDto,
+  type UpdateProfileRequestDto,
+} from "@infinda/shared/contracts";
+import {
+  extractApiError,
+  parseJsonResponse,
+  type ApiErrorPayload,
+} from "@/shared/api/api-errors";
 
-type ApiDevice = {
-  id: number;
-  name: string;
-  icon: "desktop" | "mobile" | "laptop";
-  ip: string;
-  last_seen: string;
-  status: "online" | "offline";
-  platform_name: string;
-  client_name: string;
-  meta: string;
-};
-
-type ApiProfile = {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  telegram_handle: string;
-};
-
-type ApiSubscriptionRoute = {
+export type CabinetSubscriptionPlan = {
   code: string;
-  label: string;
-  url: string;
+  title: string;
+  durationDays: number;
+  priceRub: number;
+  maxDevices: number;
+  description: string;
 };
 
-type ApiSubscription = {
-  plan_name: string;
-  main_link: string;
-  active_until: string;
-  remaining_days: number;
-  max_devices: number;
-  countries: ApiSubscriptionRoute[];
+export type CabinetSubscriptionCheckout = {
+  paymentId: number;
+  checkoutUrl: string;
+  status: string;
+  provider: string;
+  paymentMethod: string;
+  planCode: string;
 };
 
 function formatLastSeen(value: string) {
@@ -55,7 +55,7 @@ function formatLastSeen(value: string) {
   }).format(date);
 }
 
-function mapDevice(device: ApiDevice): CabinetDevice {
+function mapDevice(device: DeviceDto): CabinetDevice {
   return {
     id: device.id,
     name: device.name,
@@ -69,7 +69,7 @@ function mapDevice(device: ApiDevice): CabinetDevice {
   };
 }
 
-function mapProfile(profile: ApiProfile): CabinetProfile {
+function mapProfile(profile: ProfileDto): CabinetProfile {
   return {
     id: profile.id,
     username: profile.username,
@@ -94,29 +94,63 @@ function mapDate(value: string) {
   }).format(date);
 }
 
-function mapSubscription(subscription: ApiSubscription): CabinetSubscription {
+function mapSubscription(subscription: SubscriptionDto): CabinetSubscription {
+  if (subscription.status === "none") {
+    return {
+      status: "none",
+      isTrial: false,
+      planName: null,
+      mainLink: null,
+      activeUntil: null,
+      remainingDays: 0,
+      maxDevices: null,
+      countries: [],
+    };
+  }
+
+  const resolvedSubscription = subscription as FilledSubscriptionDto;
+
   return {
-    planName: subscription.plan_name,
-    mainLink: subscription.main_link,
-    activeUntil: mapDate(subscription.active_until),
-    remainingDays: subscription.remaining_days,
-    maxDevices: subscription.max_devices,
-    countries: subscription.countries,
+    status: resolvedSubscription.status,
+    isTrial: resolvedSubscription.is_trial,
+    planName: resolvedSubscription.plan_name,
+    mainLink: resolvedSubscription.main_link,
+    activeUntil: mapDate(resolvedSubscription.active_until),
+    remainingDays: resolvedSubscription.remaining_days,
+    maxDevices: resolvedSubscription.max_devices,
+    countries: resolvedSubscription.countries,
+  };
+}
+
+async function parseError(response: Response, fallbackMessage: string) {
+  const payload = parseJsonResponse<ApiErrorPayload>(await response.text());
+  const error = extractApiError(payload);
+  return error?.message ?? fallbackMessage;
+}
+
+function mapSubscriptionPlan(plan: SubscriptionPlanDto): CabinetSubscriptionPlan {
+  return {
+    code: plan.code,
+    title: plan.title,
+    durationDays: plan.duration_days,
+    priceRub: plan.price_rub,
+    maxDevices: plan.max_devices,
+    description: plan.description,
   };
 }
 
 export async function fetchCabinetProfile(token: string) {
-  const response = await fetch("/api/profile/me/", {
+  const response = await fetch(`/api/${profileApiPaths.me}`, {
     headers: {
       Authorization: `Token ${token}`,
     },
   });
 
   if (!response.ok) {
-    throw new Error("Не удалось получить профиль.");
+    throw new Error(await parseError(response, "Не удалось получить профиль."));
   }
 
-  const payload = (await response.json()) as ApiProfile;
+  const payload = parseJsonResponse<ProfileDto>(await response.text()) as ProfileDto;
   return mapProfile(payload);
 }
 
@@ -131,62 +165,124 @@ export async function updateCabinetProfile(
     newPassword?: string;
   },
 ) {
-  const response = await fetch("/api/profile/me/", {
+  const requestPayload: UpdateProfileRequestDto = {
+    email: payload.email,
+    first_name: payload.firstName,
+    last_name: payload.lastName,
+    telegram_handle: payload.telegramHandle,
+    current_password: payload.currentPassword,
+    new_password: payload.newPassword,
+  };
+
+  const response = await fetch(`/api/${profileApiPaths.me}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Token ${token}`,
     },
-    body: JSON.stringify({
-      email: payload.email,
-      first_name: payload.firstName,
-      last_name: payload.lastName,
-      telegram_handle: payload.telegramHandle,
-      current_password: payload.currentPassword,
-      new_password: payload.newPassword,
-    }),
+    body: JSON.stringify(requestPayload),
   });
 
   if (!response.ok) {
-    throw new Error("Не удалось обновить профиль.");
+    throw new Error(await parseError(response, "Не удалось обновить профиль."));
   }
 
-  const responsePayload = (await response.json()) as ApiProfile;
+  const responsePayload = parseJsonResponse<ProfileDto>(
+    await response.text(),
+  ) as ProfileDto;
   return mapProfile(responsePayload);
 }
 
 export async function fetchCabinetDevices(token: string) {
-  const response = await fetch("/api/devices/", {
+  const response = await fetch(`/api/${devicesApiPaths.list}`, {
     headers: {
       Authorization: `Token ${token}`,
     },
   });
 
   if (!response.ok) {
-    throw new Error("Не удалось получить список устройств.");
+    throw new Error(
+      await parseError(response, "Не удалось получить список устройств."),
+    );
   }
 
-  const payload = (await response.json()) as ApiDevice[];
+  const payload = parseJsonResponse<DeviceDto[]>(await response.text()) as DeviceDto[];
   return payload.map(mapDevice);
 }
 
 export async function fetchCabinetSubscription(token: string) {
-  const response = await fetch("/api/subscription/", {
+  const response = await fetch(`/api/${subscriptionApiPaths.current}`, {
     headers: {
       Authorization: `Token ${token}`,
     },
   });
 
   if (!response.ok) {
-    throw new Error("Не удалось получить данные подписки.");
+    throw new Error(
+      await parseError(response, "Не удалось получить данные подписки."),
+    );
   }
 
-  const payload = (await response.json()) as ApiSubscription;
+  const payload = parseJsonResponse<SubscriptionDto>(
+    await response.text(),
+  ) as SubscriptionDto;
   return mapSubscription(payload);
 }
 
+export async function fetchCabinetSubscriptionPlans(token: string) {
+  const response = await fetch(`/api/${subscriptionApiPaths.plans}`, {
+    headers: {
+      Authorization: `Token ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await parseError(response, "Не удалось получить список тарифов."),
+    );
+  }
+
+  const payload = parseJsonResponse<SubscriptionPlanDto[]>(
+    await response.text(),
+  ) as SubscriptionPlanDto[];
+  return payload.map(mapSubscriptionPlan);
+}
+
+export async function purchaseCabinetSubscription(token: string, planCode: string) {
+  const requestPayload: PurchaseSubscriptionRequestDto = {
+    plan_code: planCode,
+  };
+
+  const response = await fetch(`/api/${subscriptionApiPaths.checkout}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Token ${token}`,
+    },
+    body: JSON.stringify(requestPayload),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await parseError(response, "Не удалось создать платеж."),
+    );
+  }
+
+  const payload = parseJsonResponse<SubscriptionCheckoutDto>(
+    await response.text(),
+  ) as SubscriptionCheckoutDto;
+  return {
+    paymentId: payload.payment_id,
+    checkoutUrl: payload.checkout_url,
+    status: payload.status,
+    provider: payload.provider,
+    paymentMethod: payload.payment_method,
+    planCode: payload.plan_code,
+  } satisfies CabinetSubscriptionCheckout;
+}
+
 export async function revokeCabinetDevice(token: string, deviceId: number) {
-  const response = await fetch(`/api/devices/${deviceId}/revoke/`, {
+  const response = await fetch(`/api/${devicesApiPaths.revoke(deviceId)}`, {
     method: "POST",
     headers: {
       Authorization: `Token ${token}`,
@@ -194,6 +290,6 @@ export async function revokeCabinetDevice(token: string, deviceId: number) {
   });
 
   if (!response.ok) {
-    throw new Error("Не удалось отозвать устройство.");
+    throw new Error(await parseError(response, "Не удалось отозвать устройство."));
   }
 }

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Subscription, SubscriptionRoute
+from .models import Subscription, SubscriptionPayment, SubscriptionRoute
 
 
 class SubscriptionRouteInline(admin.TabularInline):
@@ -46,3 +46,61 @@ class SubscriptionRouteAdmin(admin.ModelAdmin):
     list_filter = ("code",)
     search_fields = ("subscription__user__email", "label", "code")
     autocomplete_fields = ("subscription",)
+
+
+@admin.register(SubscriptionPayment)
+class SubscriptionPaymentAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "plan_name",
+        "amount_rub",
+        "status",
+        "provider_status",
+        "created_at",
+    )
+    list_filter = ("status", "provider", "payment_method", "provider_status")
+    search_fields = (
+        "user__email",
+        "user__username",
+        "plan_name",
+        "plan_code",
+        "external_payment_id",
+    )
+    autocomplete_fields = ("user",)
+    readonly_fields = ("created_at", "updated_at", "paid_at")
+    fieldsets = (
+        (
+            "Пользователь и тариф",
+            {
+                "fields": (
+                    "user",
+                    "plan_code",
+                    "plan_name",
+                    "amount_rub",
+                    "duration_days",
+                    "max_devices",
+                ),
+            },
+        ),
+        (
+            "Провайдер",
+            {
+                "fields": (
+                    "provider",
+                    "payment_method",
+                    "status",
+                    "provider_status",
+                    "external_payment_id",
+                    "checkout_url",
+                    "provider_payload",
+                ),
+            },
+        ),
+        (
+            "Служебное",
+            {
+                "fields": ("paid_at", "created_at", "updated_at"),
+            },
+        ),
+    )

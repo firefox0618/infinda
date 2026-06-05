@@ -226,6 +226,19 @@
   border-color: transparent;
 }
 
+.selectButton:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
+.checkoutError {
+  margin: 18px 0 0;
+  text-align: center;
+  color: #ff9bb7;
+  font-size: 0.92rem;
+}
+
 .compareSection {
   padding: 0 0 58px;
 }

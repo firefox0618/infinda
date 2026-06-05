@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  AuthRequestError,
   fetchCurrentUser,
   logoutCurrentUser,
 } from "@/shared/auth/auth-client";
+import { navigateToErrorPage } from "@/shared/navigation/error-page-navigation";
 import {
   clearAuthSession,
   readAuthToken,
@@ -19,9 +21,12 @@ import styles from "./cabinet-page.module.css";
 import {
   fetchCabinetDevices,
   fetchCabinetProfile,
+  fetchCabinetSubscriptionPlans,
   fetchCabinetSubscription,
+  purchaseCabinetSubscription,
   revokeCabinetDevice,
   updateCabinetProfile,
+  type CabinetSubscriptionPlan,
 } from "../api/cabinet-client";
 
 import { CabinetDevicesPanel } from "./cabinet-devices-panel";
@@ -79,6 +84,30 @@ export function CabinetPage() {
   const [profileTelegram, setProfileTelegram] = useState("@telegram");
   const [profileCurrentPassword, setProfileCurrentPassword] = useState("");
   const [profilePassword, setProfilePassword] = useState("");
+  const [profileSaveState, setProfileSaveState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [profileSaveMessage, setProfileSaveMessage] = useState("");
+  const [subscriptionPlans, setSubscriptionPlans] = useState<CabinetSubscriptionPlan[]>([]);
+  const [subscriptionActionState, setSubscriptionActionState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [subscriptionActionMessage, setSubscriptionActionMessage] = useState("");
+
+  const resetSubscriptionActionState = useCallback(() => {
+    setSubscriptionActionState("idle");
+    setSubscriptionActionMessage("");
+  }, []);
+
+  const openRenewModal = useCallback(() => {
+    resetSubscriptionActionState();
+    setIsRenewModalOpen(true);
+  }, [resetSubscriptionActionState]);
+
+  const closeRenewModal = useCallback(() => {
+    setIsRenewModalOpen(false);
+    resetSubscriptionActionState();
+  }, [resetSubscriptionActionState]);
 
   const currentSection = useMemo(() => {
     if (activeTab === "overview") {
@@ -98,12 +127,12 @@ export function CabinetPage() {
 
   const subscriptionDetails = useMemo(
     () =>
-      subscription
+      subscription && subscription.status !== "none"
         ? [
-            { label: "Тариф", value: subscription.planName },
-            { label: "Активна до", value: subscription.activeUntil },
+            { label: "Тариф", value: subscription.planName ?? "Не оформлена" },
+            { label: "Активна до", value: subscription.activeUntil ?? "Нет даты" },
             { label: "Осталось дней", value: String(subscription.remainingDays) },
-            { label: "Устройств", value: `${devices.length} из ${subscription.maxDevices}` },
+            { label: "Устройств", value: `${devices.length} из ${subscription.maxDevices ?? 0}` },
           ]
         : [],
     [devices, subscription],
@@ -123,8 +152,15 @@ export function CabinetPage() {
       if (stat.title === "Осталось дней") {
         return {
           ...stat,
-          value: subscription ? String(subscription.remainingDays) : stat.value,
-          note: subscription ? "подписка активна" : stat.note,
+          value: subscription ? String(subscription.remainingDays) : "0",
+          note:
+            subscription?.status === "trial"
+              ? "триал активен"
+              : subscription?.status === "active"
+                ? "подписка активна"
+                : subscription?.status === "expired"
+                  ? "доступ закончился"
+                  : "подписка не оформлена",
         };
       }
 
@@ -132,8 +168,8 @@ export function CabinetPage() {
         return {
           ...stat,
           value: String(onlineDevicesCount),
-          note: subscription
-            ? `${devices.length} из ${subscription.maxDevices} доступных`
+          note: subscription && subscription.status !== "none"
+            ? `${devices.length} из ${subscription.maxDevices ?? 0} доступных`
             : `${devices.length} устройств в кабинете`,
         };
       }
@@ -141,6 +177,10 @@ export function CabinetPage() {
       return stat;
     });
   }, [devices, subscription]);
+
+  const openServerErrorPage = useCallback(() => {
+    navigateToErrorPage(router, "500");
+  }, [router]);
 
   useEffect(() => {
     const token = readAuthToken();
@@ -158,8 +198,9 @@ export function CabinetPage() {
       fetchCabinetProfile(token),
       fetchCabinetDevices(token),
       fetchCabinetSubscription(token),
+      fetchCabinetSubscriptionPlans(token),
     ])
-      .then(([user, profile, fetchedDevices, fetchedSubscription]) => {
+      .then(([user, profile, fetchedDevices, fetchedSubscription, fetchedPlans]) => {
         if (isCancelled) {
           return;
         }
@@ -168,26 +209,38 @@ export function CabinetPage() {
         replaceStoredAuthUser(user);
         setDevices(fetchedDevices);
         setSubscription(fetchedSubscription);
-        setSelectedCountry(fetchedSubscription.countries[0]?.code ?? "");
+        setSubscriptionPlans(fetchedPlans);
+        setSelectedCountry(fetchedSubscription?.countries[0]?.code ?? "");
         setProfileEmail(profile.email);
         setProfileFirstName(profile.firstName);
         setProfileLastName(profile.lastName);
         setProfileTelegram(profile.telegramHandle);
+        setProfileSaveState("idle");
+        setProfileSaveMessage("");
         setIsSessionResolved(true);
       })
-      .catch(() => {
+      .catch((error) => {
         if (isCancelled) {
           return;
         }
 
-        clearAuthSession();
-        router.replace("/auth");
+        if (
+          error instanceof AuthRequestError &&
+          (error.errorCode === "AUTHENTICATION_FAILED" ||
+            error.errorCode === "NOT_AUTHENTICATED")
+        ) {
+          clearAuthSession();
+          router.replace("/auth");
+          return;
+        }
+
+        openServerErrorPage();
       });
 
     return () => {
       isCancelled = true;
     };
-  }, [router]);
+  }, [openServerErrorPage, router]);
 
   const writeToClipboard = async (value: string, scope: "main" | "server") => {
     try {
@@ -254,8 +307,12 @@ export function CabinetPage() {
       return;
     }
 
-    await revokeCabinetDevice(token, deviceId);
-    setDevices((current) => current.filter((device) => device.id !== deviceId));
+    try {
+      await revokeCabinetDevice(token, deviceId);
+      setDevices((current) => current.filter((device) => device.id !== deviceId));
+    } catch {
+      openServerErrorPage();
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -267,36 +324,74 @@ export function CabinetPage() {
       return;
     }
 
-    const updatedProfile = await updateCabinetProfile(token, {
-      email: profileEmail,
-      firstName: profileFirstName,
-      lastName: profileLastName,
-      telegramHandle: profileTelegram,
-      currentPassword: profileCurrentPassword || undefined,
-      newPassword: profilePassword || undefined,
-    });
+    setProfileSaveState("loading");
+    setProfileSaveMessage("Сохраняем изменения…");
 
-    const nextUser = currentUser
-      ? {
-          ...currentUser,
-          email: updatedProfile.email,
-          first_name: updatedProfile.firstName,
-          last_name: updatedProfile.lastName,
-        }
-      : null;
+    try {
+      const updatedProfile = await updateCabinetProfile(token, {
+        email: profileEmail,
+        firstName: profileFirstName,
+        lastName: profileLastName,
+        telegramHandle: profileTelegram,
+        currentPassword: profileCurrentPassword || undefined,
+        newPassword: profilePassword || undefined,
+      });
 
-    setCurrentUser(nextUser);
-    if (nextUser) {
-      replaceStoredAuthUser(nextUser);
+      const nextUser = currentUser
+        ? {
+            ...currentUser,
+            email: updatedProfile.email,
+            first_name: updatedProfile.firstName,
+            last_name: updatedProfile.lastName,
+          }
+        : null;
+
+      setCurrentUser(nextUser);
+      if (nextUser) {
+        replaceStoredAuthUser(nextUser);
+      }
+      setProfileEmail(updatedProfile.email);
+      setProfileFirstName(updatedProfile.firstName);
+      setProfileLastName(updatedProfile.lastName);
+      setProfileTelegram(updatedProfile.telegramHandle);
+      setProfileCurrentPassword("");
+      setProfilePassword("");
+      setProfileSaveState("success");
+      setProfileSaveMessage("Данные профиля сохранены.");
+    } catch {
+      setProfileSaveState("error");
+      setProfileSaveMessage("Произошла ошибка. Перенаправляем…");
+      window.setTimeout(() => {
+        openServerErrorPage();
+      }, 350);
     }
-    setProfileEmail(updatedProfile.email);
-    setProfileFirstName(updatedProfile.firstName);
-    setProfileLastName(updatedProfile.lastName);
-    setProfileTelegram(updatedProfile.telegramHandle);
-    setProfileCurrentPassword("");
-    setProfilePassword("");
-    setIsProfileModalOpen(false);
   };
+
+  const handlePurchaseSubscription = useCallback(
+    async (planCode: string) => {
+      const token = readAuthToken();
+
+      if (!token) {
+        clearAuthSession();
+        router.replace("/auth");
+        return;
+      }
+
+      setSubscriptionActionState("loading");
+      setSubscriptionActionMessage("Создаем платеж…");
+
+      try {
+        const checkout = await purchaseCabinetSubscription(token, planCode);
+        setSubscriptionActionState("success");
+        setSubscriptionActionMessage("Перенаправляем на страницу оплаты…");
+        window.location.assign(checkout.checkoutUrl);
+      } catch {
+        setSubscriptionActionState("error");
+        setSubscriptionActionMessage("Не удалось создать платеж.");
+      }
+    },
+    [router],
+  );
 
   if (!isSessionResolved) {
     return (
@@ -366,7 +461,7 @@ export function CabinetPage() {
                 <button
                   type="button"
                   className={`${styles.topButton} ${styles.topButtonPrimary}`}
-                  onClick={() => setIsRenewModalOpen(true)}
+                  onClick={openRenewModal}
                 >
                   Продлить
                 </button>
@@ -393,31 +488,33 @@ export function CabinetPage() {
             {activeTab === "overview" ? (
               <CabinetOverviewPanel
                 stats={overviewStats}
-                mainLink={subscription?.mainLink ?? ""}
+                subscription={subscription}
                 devices={devices}
                 copyLabel={mainCopyLabel}
                 onCopyMainLink={() =>
-                  subscription
+                  subscription?.mainLink
                     ? void writeToClipboard(subscription.mainLink, "main")
                     : undefined
                 }
+                onOpenRenew={openRenewModal}
                 onOpenTab={setActiveTab}
               />
             ) : null}
 
             {activeTab === "subscription" && subscription ? (
               <CabinetSubscriptionPanel
-                mainLink={subscription.mainLink}
-                countries={subscription.countries}
+                subscription={subscription}
                 selectedCountryCode={selectedCountry}
-                selectedCountryUrl={selectedCountryLink?.url ?? ""}
+                selectedCountryUrl={selectedCountryLink?.url ?? null}
                 details={subscriptionDetails}
                 mainCopyLabel={mainCopyLabel}
                 serverCopyLabel={serverCopyLabel}
-                onOpenRenew={() => setIsRenewModalOpen(true)}
+                onOpenRenew={openRenewModal}
                 onSelectCountry={setSelectedCountry}
                 onCopyMainLink={() =>
-                  void writeToClipboard(subscription.mainLink, "main")
+                  subscription.mainLink
+                    ? void writeToClipboard(subscription.mainLink, "main")
+                    : undefined
                 }
                 onCopyCountryLink={() =>
                   selectedCountryLink
@@ -463,7 +560,7 @@ export function CabinetPage() {
         <div
           className={styles.modalOverlay}
           role="presentation"
-          onClick={() => setIsRenewModalOpen(false)}
+          onClick={closeRenewModal}
         >
           <div
             className={styles.modalCard}
@@ -478,35 +575,42 @@ export function CabinetPage() {
                   Продлить подписку
                 </h2>
                 <p className={styles.modalText}>
-                  Выберите срок и перейдите к оплате в следующем шаге.
+                  Выберите тариф. Подписка активируется сразу после подтверждения.
                 </p>
               </div>
               <button
                 type="button"
                 className={styles.modalCloseButton}
-                onClick={() => setIsRenewModalOpen(false)}
+                onClick={closeRenewModal}
               >
                 Закрыть
               </button>
             </div>
 
             <div className={styles.tariffGrid}>
-              {[
-                { title: "1 месяц", price: "149 ₽", note: "Быстрый старт" },
-                { title: "3 месяца", price: "399 ₽", note: "Оптимальный вариант" },
-                { title: "6 месяцев", price: "749 ₽", note: "Выгоднее на длинный срок" },
-                { title: "12 месяцев", price: "1290 ₽", note: "Максимальный доступ" },
-              ].map((tariff) => (
-                <article key={tariff.title} className={styles.tariffCard}>
+              {subscriptionPlans.map((tariff) => (
+                <article key={tariff.code} className={styles.tariffCard}>
                   <div className={styles.tariffTitle}>{tariff.title}</div>
-                  <div className={styles.tariffPrice}>{tariff.price}</div>
-                  <div className={styles.tariffNote}>{tariff.note}</div>
-                  <button type="button" className={styles.primaryButton}>
-                    Выбрать и оплатить
+                  <div className={styles.tariffPrice}>{tariff.priceRub} ₽</div>
+                  <div className={styles.tariffNote}>{tariff.description}</div>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    disabled={subscriptionActionState === "loading"}
+                    onClick={() => {
+                      void handlePurchaseSubscription(tariff.code);
+                    }}
+                  >
+                    {subscriptionActionState === "loading"
+                      ? "Оформление…"
+                      : "Активировать"}
                   </button>
                 </article>
               ))}
             </div>
+            {subscriptionActionState !== "idle" ? (
+              <p className={styles.modalText}>{subscriptionActionMessage}</p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -606,22 +710,44 @@ export function CabinetPage() {
               </label>
             </div>
 
+            <div
+              className={`${styles.profileStatus} ${
+                profileSaveState !== "idle" ? styles.profileStatusVisible : ""
+              } ${
+                profileSaveState === "loading" ? styles.profileStatusLoading : ""
+              } ${
+                profileSaveState === "success"
+                  ? styles.profileStatusSuccess
+                  : profileSaveState === "error"
+                    ? styles.profileStatusError
+                    : ""
+              }`}
+            >
+              <span className={styles.profileStatusDot} aria-hidden="true" />
+              <span>{profileSaveMessage}</span>
+            </div>
+
             <div className={styles.modalActions}>
               <button
                 type="button"
                 className={styles.secondaryButton}
-                onClick={() => setIsProfileModalOpen(false)}
+                onClick={() => {
+                  setIsProfileModalOpen(false);
+                  setProfileSaveState("idle");
+                  setProfileSaveMessage("");
+                }}
               >
                 Отмена
               </button>
               <button
                 type="button"
                 className={styles.primaryButton}
+                disabled={profileSaveState === "loading"}
                 onClick={() => {
                   void handleSaveProfile();
                 }}
               >
-                Сохранить
+                {profileSaveState === "loading" ? "Сохранение…" : "Сохранить"}
               </button>
             </div>
           </div>

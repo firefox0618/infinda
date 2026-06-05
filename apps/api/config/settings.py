@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
+    "apps.activity.apps.ActivityConfig",
     "apps.auth.apps.AuthConfig",
     "apps.profile.apps.ProfileConfig",
     "apps.devices.apps.DevicesConfig",
@@ -98,4 +99,12 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
     ],
+    "EXCEPTION_HANDLER": "config.api_errors.api_exception_handler",
 }
+
+PLATEGA_MERCHANT_ID = os.getenv("PLATEGA_MERCHANT_ID", "")
+PLATEGA_SECRET_KEY = os.getenv("PLATEGA_SECRET_KEY", "")
+PLATEGA_BASE_URL = os.getenv("PLATEGA_BASE_URL", "https://api.platega.io")
+PLATEGA_WEBHOOK_SECRET = os.getenv("PLATEGA_WEBHOOK_SECRET", "")
+PLATEGA_RETURN_URL = os.getenv("PLATEGA_RETURN_URL", "http://localhost:3000/cabinet")
+PLATEGA_FAILED_URL = os.getenv("PLATEGA_FAILED_URL", "http://localhost:3000/prices")
