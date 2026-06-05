@@ -1,0 +1,688 @@
+.pageLoader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(87, 184, 255, 0.18), transparent 32%),
+    radial-gradient(circle at 58% 58%, rgba(124, 92, 255, 0.22), transparent 34%),
+    rgba(5, 7, 13, 0.97);
+  backdrop-filter: blur(20px);
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+
+.pageLoaderHidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loaderShell {
+  position: relative;
+  width: 212px;
+  height: 212px;
+  display: grid;
+  place-items: center;
+}
+
+.loaderOrbit {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  animation: loaderOrbitRotate 2.4s linear infinite;
+}
+
+.loaderOrbit::before,
+.loaderOrbit::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #57b8ff, #7c5cff);
+  box-shadow: 0 0 24px rgba(87, 184, 255, 0.9);
+}
+
+.loaderOrbit::before {
+  top: 20px;
+  left: 36px;
+}
+
+.loaderOrbit::after {
+  right: 24px;
+  bottom: 40px;
+}
+
+.loaderCard {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  border-radius: 32px;
+  background: rgba(8, 12, 22, 0.94);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.5),
+    0 0 70px rgba(87, 184, 255, 0.18);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.loaderCard::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 180deg,
+    transparent,
+    rgba(87, 184, 255, 0.55),
+    rgba(124, 92, 255, 0.78),
+    transparent
+  );
+  animation: loaderSpin 1.8s linear infinite;
+}
+
+.loaderCard::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 31px;
+  background: rgba(8, 12, 22, 0.96);
+}
+
+.loaderLogo {
+  position: relative;
+  z-index: 2;
+  width: 58px;
+  height: 58px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #57b8ff, #7c5cff);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 950;
+  box-shadow: 0 18px 45px rgba(87, 184, 255, 0.28);
+  animation: loaderLogoPulse 1.35s ease-in-out infinite;
+}
+
+.loaderText {
+  position: absolute;
+  z-index: 2;
+  bottom: 32px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+
+.loaderStatus {
+  position: absolute;
+  z-index: 2;
+  bottom: 16px;
+  font-size: 11px;
+  color: #94a3b8;
+  animation: loaderTextBlink 1.3s ease-in-out infinite;
+}
+
+.page {
+  position: relative;
+  min-height: calc(100vh - 72px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.8rem 0 2.2rem;
+}
+
+.background {
+  composes: animatedBackdrop from "../../../shared/styles/site-primitives.module.css";
+}
+
+.page::after {
+  content: "";
+  position: fixed;
+  inset: -10%;
+  z-index: -1;
+  background:
+    linear-gradient(120deg, transparent 0%, rgba(25, 215, 255, 0.1) 24%, transparent 46%),
+    linear-gradient(300deg, transparent 10%, rgba(80, 170, 255, 0.12) 32%, transparent 56%),
+    linear-gradient(340deg, transparent 18%, rgba(139, 92, 255, 0.08) 40%, transparent 62%);
+  mix-blend-mode: screen;
+  animation: lightSweep 12s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.container {
+  display: grid;
+  gap: 0;
+  width: min(100%, 980px);
+  margin: 0 auto;
+  justify-items: center;
+  padding: 0 20px;
+}
+
+.panelSection {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-top: 1.2rem;
+}
+
+.panel {
+  width: min(100%, 30rem);
+  padding: 1.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2rem;
+  background:
+    linear-gradient(180deg, rgba(16, 22, 38, 0.88), rgba(8, 12, 24, 0.78));
+  backdrop-filter: blur(16px);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: panelEnter 0.55s ease;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  margin-bottom: 1.5rem;
+}
+
+.tabButton {
+  min-height: 2.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(214, 224, 241, 0.64);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color 0.22s ease,
+    transform 0.22s ease,
+    background 0.22s ease;
+}
+
+.tabButton:hover {
+  color: #f5f8ff;
+  transform: translateY(-1px);
+}
+
+.tabButtonActive {
+  background: linear-gradient(135deg, #1fbfff, #8b5cff);
+  color: #ffffff;
+  box-shadow: 0 12px 20px rgba(91, 120, 255, 0.18);
+}
+
+.formPanel {
+  display: grid;
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.label {
+  color: #f3f8ff;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.input:focus {
+  border-color: rgba(98, 191, 255, 0.72);
+  box-shadow: 0 0 0 3px rgba(52, 144, 255, 0.12);
+}
+
+.passwordField {
+  position: relative;
+}
+
+.passwordField .input {
+  padding-right: 6rem;
+}
+
+.toggleButton {
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #8fd6ff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.toggleButton:hover {
+  color: #dff5ff;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  color: rgba(222, 231, 246, 0.76);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.checkboxInput {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.checkboxControl {
+  position: relative;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 0.16rem;
+  border: 1px solid rgba(143, 214, 255, 0.28);
+  border-radius: 0.38rem;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.checkboxControl::after {
+  content: "";
+  position: absolute;
+  left: 0.33rem;
+  top: 0.12rem;
+  width: 0.28rem;
+  height: 0.55rem;
+  border-right: 2px solid #04111f;
+  border-bottom: 2px solid #04111f;
+  transform: rotate(45deg) scale(0);
+  transform-origin: center;
+  transition: transform 0.18s ease;
+}
+
+.checkboxInput:checked + .checkboxControl {
+  border-color: transparent;
+  background: linear-gradient(135deg, #1fbfff, #8b5cff);
+  box-shadow: 0 0 0 4px rgba(86, 128, 255, 0.12);
+}
+
+.checkboxInput:checked + .checkboxControl::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.checkboxRow:hover .checkboxControl {
+  transform: translateY(-1px);
+  border-color: rgba(143, 214, 255, 0.48);
+}
+
+.textAction {
+  border: 0;
+  background: transparent;
+  color: #8fd6ff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.textAction:hover {
+  color: #f2f8ff;
+}
+
+.inlineLink {
+  color: #8fd6ff;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.inlineLink:hover {
+  color: #f2f8ff;
+  text-decoration: underline;
+}
+
+.submitButton,
+.telegramButton {
+  min-height: 3.15rem;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.submitButton {
+  border: 0;
+  background: linear-gradient(135deg, #1fbfff, #8b5cff);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(88, 101, 255, 0.18);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    filter 0.22s ease;
+}
+
+.submitButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(88, 101, 255, 0.24);
+  filter: saturate(1.06);
+}
+
+.submitButtonLoading {
+  pointer-events: none;
+}
+
+.submitButtonSuccess {
+  background: linear-gradient(135deg, #34d399, #55e59a);
+  box-shadow: 0 18px 42px rgba(85, 229, 154, 0.24);
+  pointer-events: none;
+}
+
+.submitButtonError {
+  background: linear-gradient(135deg, #fb7185, #ef4444);
+  box-shadow: 0 18px 42px rgba(251, 113, 133, 0.26);
+  animation: buttonShake 0.36s ease;
+}
+
+.buttonContent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.buttonLoader {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: buttonSpin 0.75s linear infinite;
+}
+
+.buttonCheck {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.22);
+  position: relative;
+}
+
+.buttonCheck::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid white;
+  border-bottom: 2px solid white;
+  transform: rotate(45deg);
+}
+
+.loginStatus {
+  min-height: 24px;
+  margin-top: -2px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  font-size: 13px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.26s ease,
+    transform 0.26s ease,
+    color 0.22s ease;
+}
+
+.loginStatusVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.loginStatusLoading {
+  color: #cbe8ff;
+  border-color: rgba(87, 184, 255, 0.18);
+  background: rgba(87, 184, 255, 0.05);
+}
+
+.loginStatusSuccess {
+  color: #bbf7d0;
+  border-color: rgba(85, 229, 154, 0.18);
+  background: rgba(85, 229, 154, 0.05);
+}
+
+.loginStatusError {
+  color: #fda4af;
+  border-color: rgba(251, 113, 133, 0.18);
+  background: rgba(251, 113, 133, 0.06);
+  animation: statusRevealError 0.34s ease;
+}
+
+.loginStatusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #57b8ff;
+  box-shadow: 0 0 16px rgba(87, 184, 255, 0.9);
+}
+
+.loginStatusLoading .loginStatusDot {
+  animation: loginDotPulse 1s ease-in-out infinite;
+}
+
+.loginStatusSuccess .loginStatusDot {
+  background: #55e59a;
+  box-shadow: 0 0 16px rgba(85, 229, 154, 0.95);
+}
+
+.loginStatusError .loginStatusDot {
+  background: #fb7185;
+  box-shadow: 0 0 16px rgba(251, 113, 133, 0.9);
+}
+
+.telegramSection {
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.telegramButton {
+  width: 100%;
+  border: 1px solid rgba(98, 191, 255, 0.18);
+  background: rgba(25, 215, 255, 0.08);
+  color: #8fd6ff;
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    background 0.22s ease,
+    color 0.22s ease;
+}
+
+.telegramButton:hover {
+  transform: translateY(-1px);
+  border-color: rgba(143, 214, 255, 0.32);
+  background: rgba(25, 215, 255, 0.12);
+  color: #f5fbff;
+}
+
+.errorText {
+  color: #ff8b8b;
+  font-size: 0.82rem;
+}
+
+@keyframes lightSweep {
+  0% {
+    transform: translate3d(-3%, -1%, 0) rotate(0deg);
+    opacity: 0.48;
+  }
+
+  50% {
+    transform: translate3d(3%, 2%, 0) rotate(1deg);
+    opacity: 0.86;
+  }
+
+  100% {
+    transform: translate3d(6%, -2%, 0) rotate(2deg);
+    opacity: 0.58;
+  }
+}
+
+@keyframes panelEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes loaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loaderOrbitRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loaderLogoPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 18px 45px rgba(87, 184, 255, 0.24);
+  }
+
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 22px 60px rgba(124, 92, 255, 0.38);
+  }
+}
+
+@keyframes loaderTextBlink {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes buttonSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes buttonShake {
+  0% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  50% {
+    transform: translateX(4px);
+  }
+
+  75% {
+    transform: translateX(-3px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes statusRevealError {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes loginDotPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    min-height: calc(100vh - 68px);
+    align-items: flex-start;
+    padding: 2.6rem 0 1.8rem;
+  }
+
+  .panel {
+    width: min(100%, 28rem);
+    padding: 1.15rem;
+    border-radius: 1.5rem;
+  }
+
+  .panelSection {
+    padding-top: 1.4rem;
+  }
+
+  .metaRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

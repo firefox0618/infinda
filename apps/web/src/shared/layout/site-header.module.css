@@ -70,6 +70,10 @@
   text-shadow: 0 0 8px rgba(139, 92, 255, 0.8);
 }
 
+.navLinkActive {
+  color: #fff;
+}
+
 .navLabel {
   position: relative;
   z-index: 1;
@@ -97,6 +101,10 @@
   width: 100%;
 }
 
+.navLinkActive .navLabel::after {
+  width: 100%;
+}
+
 .cta {
   display: inline-flex;
   align-items: center;
@@ -118,6 +126,11 @@
 .cta:hover {
   transform: translateY(-2px);
   box-shadow: 0 0 28px rgba(139, 92, 255, 0.6);
+}
+
+.ctaHidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 @media (max-width: 860px) {
@@ -151,9 +164,4 @@
     height: 26px;
   }
 
-  .cta {
-    height: 40px;
-    padding: 0 16px;
-    font-size: 0.78rem;
-  }
 }

@@ -1,0 +1,71 @@
+.root {
+  display: grid;
+  gap: 16px;
+}
+
+.item {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.itemOpen {
+  border-color: rgba(139, 92, 255, 0.22);
+}
+
+.trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 26px;
+  border: 0;
+  background: transparent;
+  color: #f3f5fb;
+  font-size: 1.02rem;
+  font-weight: 600;
+  text-align: left;
+  transition: background 0.2s ease;
+}
+
+.trigger:hover {
+  background: rgba(139, 92, 255, 0.08);
+}
+
+.chevron {
+  color: #c9b8ff;
+  transition: transform 0.24s ease;
+}
+
+.itemOpen .chevron {
+  transform: rotate(180deg);
+}
+
+.content {
+  padding: 0 26px 20px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+.text {
+  margin: 14px 0 0;
+  color: #adb0bf;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+@media (max-width: 540px) {
+  .trigger {
+    padding: 18px 20px;
+    font-size: 0.96rem;
+  }
+
+  .content {
+    padding: 0 20px 18px;
+  }
+
+  .text {
+    font-size: 0.9rem;
+  }
+}

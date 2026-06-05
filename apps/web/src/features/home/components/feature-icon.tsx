@@ -1,4 +1,4 @@
-type FeatureIconName = "shield" | "bolt" | "unlock";
+type FeatureIconName = "shield" | "signal" | "controls";
 
 type FeatureIconProps = {
   name: FeatureIconName;
@@ -25,13 +25,31 @@ export function FeatureIcon({ name }: FeatureIconProps) {
     );
   }
 
-  if (name === "bolt") {
+  if (name === "signal") {
     return (
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
-          d="M13.4 2.5 6.8 13h4.5l-1 8.5L17.2 11h-4.4l.6-8.5Z"
-          fill="currentColor"
+          d="M4.5 16.5a10.5 10.5 0 0 1 15 0"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
+        <path
+          d="M7.5 13.5a6.2 6.2 0 0 1 9 0"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M10.5 10.5a2.4 2.4 0 0 1 3 0"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="12" cy="18" r="1.8" fill="currentColor" />
       </svg>
     );
   }
@@ -40,20 +58,21 @@ export function FeatureIcon({ name }: FeatureIconProps) {
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <rect
         x="4"
-        y="10"
+        y="5"
         width="16"
-        height="10"
+        height="14"
         rx="3"
         stroke="currentColor"
         strokeWidth="1.8"
       />
       <path
-        d="M8 10V7.8A4 4 0 0 1 12 4a4 4 0 0 1 4 3.8V10"
+        d="M8 9h8M8 15h8"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
       />
-      <circle cx="12" cy="15" r="1.2" fill="currentColor" />
+      <circle cx="10" cy="9" r="1.7" fill="currentColor" />
+      <circle cx="14" cy="15" r="1.7" fill="currentColor" />
     </svg>
   );
 }

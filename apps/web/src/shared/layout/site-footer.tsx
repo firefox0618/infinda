@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import styles from "./site-footer.module.css";
 
 import { siteFooterColumns } from "./site-content";
@@ -20,9 +22,9 @@ export function SiteFooter() {
               <div key={column.title}>
                 <h4 className={styles.title}>{column.title}</h4>
                 {column.links.map((link) => (
-                  <a key={link} href="#" className={styles.link}>
-                    {link}
-                  </a>
+                  <Link key={link.label} href={link.href} className={styles.link}>
+                    {link.label}
+                  </Link>
                 ))}
               </div>
             ))}
@@ -32,8 +34,8 @@ export function SiteFooter() {
         <div className={styles.bottom}>
           <div>© 2026 INFINDA · Private Network</div>
           <div className={styles.bottomLinks}>
-            <a href="#">Telegram</a>
-            <a href="#">Русский</a>
+            <Link href="/resources">Telegram</Link>
+            <Link href="/about">Русский</Link>
           </div>
         </div>
       </div>

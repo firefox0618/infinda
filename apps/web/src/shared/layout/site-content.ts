@@ -1,26 +1,43 @@
 export const siteNavigationItems = [
-  { label: "Главная", href: "#" },
-  { label: "Возможности", href: "#features" },
-  { label: "Цены", href: "#" },
-  { label: "Ресурсы", href: "#" },
-  { label: "О нас", href: "#" },
+  { label: "Главная", href: "/" },
+  { label: "Возможности", href: "/features" },
+  { label: "Цены", href: "/prices" },
+  { label: "Ресурсы", href: "/resources" },
+  { label: "О нас", href: "/about" },
 ] as const;
 
 export const siteFooterColumns = [
   {
     title: "Навигация",
-    links: ["Главная", "Возможности", "Цены", "FAQ", "Инструкции"],
+    links: [
+      { label: "Главная", href: "/" },
+      { label: "Возможности", href: "/features" },
+      { label: "Цены", href: "/prices" },
+      { label: "Ресурсы", href: "/resources" },
+    ],
   },
   {
     title: "Ресурсы",
-    links: ["Бонусы за друзей", "Status Page", "Мой IP"],
+    links: [
+      { label: "Бонусы за друзей", href: "/resources" },
+      { label: "Статус серверов", href: "/resources" },
+      { label: "Мой IP", href: "/resources" },
+    ],
   },
   {
     title: "Правовая",
-    links: ["Политики и условия", "Отменить подписку", "Конфиденциальность"],
+    links: [
+      { label: "Политики и условия", href: "/auth" },
+      { label: "Отменить подписку", href: "/cabinet" },
+      { label: "Конфиденциальность", href: "/about" },
+    ],
   },
   {
     title: "О нас",
-    links: ["О компании", "Связаться с нами"],
+    links: [
+      { label: "О компании", href: "/about" },
+      { label: "Связаться с нами", href: "/about" },
+      { label: "Личный кабинет", href: "/cabinet" },
+    ],
   },
 ] as const;

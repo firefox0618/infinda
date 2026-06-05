@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import styles from "./mobile-navigation.module.css";
@@ -15,6 +17,8 @@ type MobileNavigationProps = {
 
 export function MobileNavigation({ items }: MobileNavigationProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const shouldShowAuthCta = pathname !== "/auth";
 
   const toggleMenu = () => {
     setIsOpen((currentValue) => !currentValue);
@@ -62,20 +66,24 @@ export function MobileNavigation({ items }: MobileNavigationProps) {
 
         <nav className={styles.nav} aria-label="Мобильная навигация">
           {items.map((item) => (
-            <a
+            <Link
               key={item.label}
               href={item.href}
-              className={styles.navLink}
+              className={`${styles.navLink} ${
+                pathname === item.href ? styles.navLinkActive : ""
+              }`}
               onClick={closeMenu}
             >
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
-        <a href="#" className={styles.loginButton} onClick={closeMenu}>
-          Вход
-        </a>
+        {shouldShowAuthCta ? (
+          <Link href="/auth" className={styles.loginButton} onClick={closeMenu}>
+            Вход
+          </Link>
+        ) : null}
       </div>
     </div>
   );

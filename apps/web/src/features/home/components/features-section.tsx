@@ -1,7 +1,7 @@
 import styles from "./features-section.module.css";
 
 import { FeatureIcon } from "./feature-icon";
-import { featureCards } from "../data/home-content";
+import { featureCards, homeFeaturesIntro } from "../data/home-content";
 import { RevealOnScroll } from "@/shared/ui/reveal-on-scroll";
 
 export function FeaturesSection() {
@@ -10,11 +10,8 @@ export function FeaturesSection() {
       <div className={styles.inner}>
         <RevealOnScroll>
           <div className={styles.head}>
-            <h2 className={styles.title}>Приватность без перегруза</h2>
-            <p className={styles.description}>
-              Спокойный интерфейс, понятные действия и контроль подключения без
-              лишнего шума. Только то, что действительно нужно пользователю.
-            </p>
+            <h2 className={styles.title}>{homeFeaturesIntro.title}</h2>
+            <p className={styles.description}>{homeFeaturesIntro.description}</p>
           </div>
         </RevealOnScroll>
 

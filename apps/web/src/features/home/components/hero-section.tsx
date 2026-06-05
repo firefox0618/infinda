@@ -3,6 +3,7 @@ import Image from "next/image";
 import styles from "./hero-section.module.css";
 
 import { RevealOnScroll } from "@/shared/ui/reveal-on-scroll";
+import { homeHeroContent } from "../data/home-content";
 
 export function HeroSection() {
   return (
@@ -26,24 +27,23 @@ export function HeroSection() {
           <RevealOnScroll delay={70}>
             <div className={styles.eyebrow}>
               <span className={styles.dot} aria-hidden="true" />
-              Приватность нового поколения
+              {homeHeroContent.eyebrow}
             </div>
           </RevealOnScroll>
 
           <RevealOnScroll delay={130}>
             <h1 className={styles.title}>
-              Спокойный доступ.
-              <br />
-              Защищенное подключение.
+              {homeHeroContent.title.split("\n").map((line, index) => (
+                <span key={line}>
+                  {index > 0 ? <br /> : null}
+                  {line}
+                </span>
+              ))}
             </h1>
           </RevealOnScroll>
 
           <RevealOnScroll delay={190}>
-            <p className={styles.subtitle}>
-              INFINDA помогает подключаться к сети спокойно: без перегруженного
-              интерфейса, без лишних следов и с понятным управлением доступом в
-              одном месте.
-            </p>
+            <p className={styles.subtitle}>{homeHeroContent.description}</p>
           </RevealOnScroll>
 
           <RevealOnScroll delay={250}>
@@ -55,9 +55,7 @@ export function HeroSection() {
           </RevealOnScroll>
 
           <RevealOnScroll delay={370}>
-            <div className={styles.traffic}>
-              Безлимитный трафик на тарифе «12 месяцев»
-            </div>
+            <div className={styles.traffic}>{homeHeroContent.trafficNote}</div>
           </RevealOnScroll>
         </div>
       </div>
