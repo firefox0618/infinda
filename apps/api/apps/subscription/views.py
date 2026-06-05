@@ -8,13 +8,12 @@ from rest_framework.views import APIView
 
 from .serializers import (
     SubscriptionCheckoutSerializer,
-    PurchaseSubscriptionSerializer,
+    SubscriptionCheckoutRequestSerializer,
     SubscriptionPlanSerializer,
     serialize_subscription,
 )
 from .platega import PlategaClient, PlategaError
 from .services import (
-    activate_subscription_plan,
     confirm_subscription_payment_from_platega,
     create_subscription_checkout,
     get_user_subscription,
@@ -45,30 +44,12 @@ class SubscriptionPlansView(APIView):
         )
 
 
-class PurchaseSubscriptionView(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        serializer = PurchaseSubscriptionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        subscription = activate_subscription_plan(
-            user=request.user,
-            plan_code=serializer.validated_data["plan_code"],
-        )
-        return Response(
-            serialize_subscription(subscription=subscription),
-            status=status.HTTP_200_OK,
-        )
-
-
 class SubscriptionCheckoutView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        serializer = PurchaseSubscriptionSerializer(data=request.data)
+        serializer = SubscriptionCheckoutRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         payment = create_subscription_checkout(

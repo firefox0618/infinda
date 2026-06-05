@@ -1,4 +1,5 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.utils import timezone
 
 from .models import Device
 
@@ -38,6 +39,7 @@ class DeviceAdmin(admin.ModelAdmin):
     search_fields = ("id", "name", "user__email", "user__username", "ip_address")
     autocomplete_fields = ("user",)
     readonly_fields = ("created_at", "updated_at", "revoked_at")
+    actions = ("revoke_selected_devices",)
     fieldsets = (
         (
             "Основное",
@@ -62,3 +64,12 @@ class DeviceAdmin(admin.ModelAdmin):
     @admin.display(description="Жизненный цикл")
     def lifecycle_state(self, obj: Device):
         return "Отозвано" if obj.is_revoked else "Активно"
+
+    @admin.action(description="Отозвать выбранные устройства")
+    def revoke_selected_devices(self, request, queryset):
+        updated = queryset.filter(revoked_at__isnull=True).update(revoked_at=timezone.now())
+        self.message_user(
+            request,
+            f"Отозвано устройств: {updated}.",
+            level=messages.WARNING,
+        )

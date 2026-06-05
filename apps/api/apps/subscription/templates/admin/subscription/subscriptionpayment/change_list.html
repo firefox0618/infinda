@@ -1,0 +1,51 @@
+{% extends "admin/change_list.html" %}
+
+{% block content_title %}
+  {{ block.super }}
+  {% if financial_summary %}
+    <div style="margin-top: 16px; display: grid; gap: 12px;">
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px;">
+        <div style="padding: 12px 14px; border: 1px solid #d7dce2; border-radius: 8px; background: #fff;">
+          <div style="font-size: 12px; color: #5f6b7a;">Оплачено за текущий месяц</div>
+          <div style="font-size: 24px; font-weight: 700;">{{ financial_summary.current_month_total }} ₽</div>
+          <div style="font-size: 12px; color: #5f6b7a;">Месяц: {{ financial_summary.current_month_label }}</div>
+        </div>
+        <div style="padding: 12px 14px; border: 1px solid #d7dce2; border-radius: 8px; background: #fff;">
+          <div style="font-size: 12px; color: #5f6b7a;">Успешных платежей за текущий месяц</div>
+          <div style="font-size: 24px; font-weight: 700;">{{ financial_summary.current_month_payments }}</div>
+        </div>
+        <div style="padding: 12px 14px; border: 1px solid #d7dce2; border-radius: 8px; background: #fff;">
+          <div style="font-size: 12px; color: #5f6b7a;">Всего оплачено</div>
+          <div style="font-size: 24px; font-weight: 700;">{{ financial_summary.total_paid_amount }} ₽</div>
+          <div style="font-size: 12px; color: #5f6b7a;">Всего успешных платежей: {{ financial_summary.total_paid_count }}</div>
+        </div>
+      </div>
+
+      <div style="padding: 12px 14px; border: 1px solid #d7dce2; border-radius: 8px; background: #fff;">
+        <div style="font-size: 16px; font-weight: 700; margin-bottom: 10px;">Помесячный финансовый отчет</div>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 8px 6px; border-bottom: 1px solid #e2e7ee;">Месяц</th>
+              <th style="text-align: left; padding: 8px 6px; border-bottom: 1px solid #e2e7ee;">Сумма</th>
+              <th style="text-align: left; padding: 8px 6px; border-bottom: 1px solid #e2e7ee;">Успешных платежей</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in financial_summary.monthly_report %}
+              <tr>
+                <td style="padding: 8px 6px; border-bottom: 1px solid #f1f4f8;">{{ item.month|date:"m.Y" }}</td>
+                <td style="padding: 8px 6px; border-bottom: 1px solid #f1f4f8;">{{ item.total_amount }} ₽</td>
+                <td style="padding: 8px 6px; border-bottom: 1px solid #f1f4f8;">{{ item.payments_count }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="3" style="padding: 10px 6px; color: #5f6b7a;">Оплаченных платежей пока нет.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

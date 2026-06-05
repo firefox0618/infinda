@@ -230,23 +230,34 @@
 
 .label {
   color: #f3f8ff;
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .input {
   width: 100%;
-  min-height: 3.25rem;
-  padding: 0 1rem;
+  min-height: 3.55rem;
+  padding: 0 1.1rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   color: #ffffff;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   outline: none;
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease,
     background 0.2s ease;
+}
+
+.input::placeholder {
+  color: rgba(214, 224, 241, 0.52);
+  font-size: 0.96rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .input:focus {
@@ -259,19 +270,21 @@
 }
 
 .passwordField .input {
-  padding-right: 6rem;
+  padding-right: 6.9rem;
 }
 
 .toggleButton {
   position: absolute;
   top: 50%;
-  right: 0.9rem;
+  right: 1rem;
   transform: translateY(-50%);
   border: 0;
   background: transparent;
   color: #8fd6ff;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: color 0.2s ease;
 }

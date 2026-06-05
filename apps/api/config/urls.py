@@ -1,6 +1,11 @@
 from django.contrib import admin
 from django.urls import include, path
 
+from .admin_dashboard import configure_admin_site
+
+
+configure_admin_site(admin.site)
+
 admin.site.site_header = "INFINDA — администрирование"
 admin.site.site_title = "INFINDA admin"
 admin.site.index_title = "Управление данными и доступом"

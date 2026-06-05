@@ -2,7 +2,6 @@ export const subscriptionApiPaths = {
   current: "subscription/",
   plans: "subscription/plans/",
   checkout: "subscription/checkout/",
-  purchase: "subscription/purchase/",
 } as const;
 
 export type SubscriptionStatusDto = "none" | "trial" | "active" | "expired";
@@ -39,7 +38,7 @@ export type SubscriptionPlanDto = {
   description: string;
 };
 
-export type PurchaseSubscriptionRequestDto = {
+export type SubscriptionCheckoutRequestDto = {
   plan_code: string;
 };
 

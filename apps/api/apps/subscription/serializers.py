@@ -52,7 +52,7 @@ class SubscriptionPlanSerializer(serializers.Serializer):
     description = serializers.CharField()
 
 
-class PurchaseSubscriptionSerializer(serializers.Serializer):
+class SubscriptionCheckoutRequestSerializer(serializers.Serializer):
     plan_code = serializers.CharField(max_length=16)
 
 

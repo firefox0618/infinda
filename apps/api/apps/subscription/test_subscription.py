@@ -10,7 +10,14 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from .models import Subscription, SubscriptionPayment, SubscriptionRoute
-from .services import create_trial_subscription
+from .services import (
+    create_trial_subscription,
+    extend_subscription_by_days,
+    mark_subscription_payment_canceled,
+    mark_subscription_payment_failed,
+    mark_subscription_payment_paid,
+    remove_user_subscription,
+)
 
 
 User = get_user_model()
@@ -131,52 +138,21 @@ class SubscriptionApiTests(APITestCase):
         self.assertEqual(response.data[0]["code"], "1m")
         self.assertEqual(response.data[-1]["code"], "12m")
 
-    def test_purchase_subscription_creates_paid_subscription(self):
-        buyer = User.objects.create_user(
-            username="buyer",
-            email="buyer@example.com",
-            password="buyer-pass-123",
-        )
-        buyer_token = Token.objects.create(user=buyer)
-        self.client.credentials(HTTP_AUTHORIZATION=f"Token {buyer_token.key}")
-
-        response = self.client.post(
-            "/api/subscription/purchase/",
-            {"plan_code": "3m"},
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["status"], "active")
-        self.assertEqual(response.data["plan_name"], "3 месяца")
-        self.assertFalse(response.data["is_trial"])
-        self.assertEqual(response.data["max_devices"], 4)
-        self.assertEqual(len(response.data["countries"]), 4)
-
-    def test_purchase_subscription_extends_existing_subscription(self):
+    def test_extend_subscription_by_days_updates_end_date(self):
         previous_ends_at = self.subscription.ends_at
 
-        response = self.client.post(
-            "/api/subscription/purchase/",
-            {"plan_code": "1m"},
-            format="json",
-        )
+        extend_subscription_by_days(subscription=self.subscription, days=30)
 
-        self.assertEqual(response.status_code, 200)
         self.subscription.refresh_from_db()
-        self.assertEqual(self.subscription.plan_name, "1 месяц")
-        self.assertEqual(self.subscription.max_devices, 3)
-        self.assertGreater(self.subscription.ends_at, previous_ends_at)
-
-    def test_purchase_subscription_rejects_unknown_plan(self):
-        response = self.client.post(
-            "/api/subscription/purchase/",
-            {"plan_code": "unknown"},
-            format="json",
+        self.assertEqual(
+            self.subscription.ends_at,
+            previous_ends_at + timedelta(days=30),
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["error"]["code"], "VALIDATION_ERROR")
+    def test_remove_user_subscription_deletes_record(self):
+        remove_user_subscription(user=self.user)
+
+        self.assertFalse(Subscription.objects.filter(user=self.user).exists())
 
     @override_settings(
         PLATEGA_MERCHANT_ID="merchant-1",
@@ -213,6 +189,70 @@ class SubscriptionApiTests(APITestCase):
         payment = SubscriptionPayment.objects.get(pk=response.data["payment_id"])
         self.assertEqual(payment.external_payment_id, "plat-100")
         self.assertEqual(payment.status, SubscriptionPayment.STATUS_PENDING)
+
+    def test_mark_subscription_payment_paid_activates_subscription(self):
+        buyer = User.objects.create_user(
+            username="manual-payment-user",
+            email="manual-payment@example.com",
+            password="manual-pass-123",
+        )
+        payment = SubscriptionPayment.objects.create(
+            user=buyer,
+            plan_code="3m",
+            plan_name="3 месяца",
+            amount_rub=399,
+            duration_days=90,
+            max_devices=4,
+            provider=SubscriptionPayment.PROVIDER_PLATEGA,
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+        )
+
+        mark_subscription_payment_paid(payment=payment)
+
+        payment.refresh_from_db()
+        subscription = Subscription.objects.get(user=buyer)
+        self.assertEqual(payment.status, SubscriptionPayment.STATUS_PAID)
+        self.assertEqual(payment.provider_status, "CONFIRMED")
+        self.assertIsNotNone(payment.paid_at)
+        self.assertEqual(subscription.plan_name, "3 месяца")
+        self.assertEqual(subscription.max_devices, 4)
+
+    def test_mark_subscription_payment_canceled_updates_status(self):
+        payment = SubscriptionPayment.objects.create(
+            user=self.user,
+            plan_code="1m",
+            plan_name="1 месяц",
+            amount_rub=149,
+            duration_days=30,
+            max_devices=3,
+            provider=SubscriptionPayment.PROVIDER_PLATEGA,
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+        )
+
+        mark_subscription_payment_canceled(payment=payment)
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionPayment.STATUS_CANCELED)
+
+    def test_mark_subscription_payment_failed_updates_status(self):
+        payment = SubscriptionPayment.objects.create(
+            user=self.user,
+            plan_code="1m",
+            plan_name="1 месяц",
+            amount_rub=149,
+            duration_days=30,
+            max_devices=3,
+            provider=SubscriptionPayment.PROVIDER_PLATEGA,
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+        )
+
+        mark_subscription_payment_failed(payment=payment)
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionPayment.STATUS_FAILED)
 
     @override_settings(
         PLATEGA_MERCHANT_ID="merchant-1",

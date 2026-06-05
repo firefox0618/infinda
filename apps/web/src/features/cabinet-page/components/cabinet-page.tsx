@@ -23,7 +23,7 @@ import {
   fetchCabinetProfile,
   fetchCabinetSubscriptionPlans,
   fetchCabinetSubscription,
-  purchaseCabinetSubscription,
+  createCabinetSubscriptionCheckout,
   revokeCabinetDevice,
   updateCabinetProfile,
   type CabinetSubscriptionPlan,
@@ -367,7 +367,7 @@ export function CabinetPage() {
     }
   };
 
-  const handlePurchaseSubscription = useCallback(
+  const handleSubscriptionCheckout = useCallback(
     async (planCode: string) => {
       const token = readAuthToken();
 
@@ -381,7 +381,7 @@ export function CabinetPage() {
       setSubscriptionActionMessage("Создаем платеж…");
 
       try {
-        const checkout = await purchaseCabinetSubscription(token, planCode);
+        const checkout = await createCabinetSubscriptionCheckout(token, planCode);
         setSubscriptionActionState("success");
         setSubscriptionActionMessage("Перенаправляем на страницу оплаты…");
         window.location.assign(checkout.checkoutUrl);
@@ -598,12 +598,12 @@ export function CabinetPage() {
                     className={styles.primaryButton}
                     disabled={subscriptionActionState === "loading"}
                     onClick={() => {
-                      void handlePurchaseSubscription(tariff.code);
+                      void handleSubscriptionCheckout(tariff.code);
                     }}
                   >
                     {subscriptionActionState === "loading"
                       ? "Оформление…"
-                      : "Активировать"}
+                      : "Перейти к оплате"}
                   </button>
                 </article>
               ))}

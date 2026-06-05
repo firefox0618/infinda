@@ -226,6 +226,56 @@ def activate_subscription_plan(*, user, plan_code: str) -> Subscription:
     return subscription
 
 
+@transaction.atomic
+def extend_subscription_by_days(*, subscription: Subscription, days: int) -> Subscription:
+    if days <= 0:
+        raise ValidationError({"days": "Количество дней должно быть больше нуля."})
+
+    today = timezone.localdate()
+    renewal_base = subscription.ends_at if subscription.ends_at >= today else today
+    subscription.ends_at = renewal_base + timedelta(days=days)
+    subscription.save(update_fields=["ends_at", "updated_at"])
+    return subscription
+
+
+@transaction.atomic
+def remove_user_subscription(*, user) -> None:
+    Subscription.objects.filter(user=user).delete()
+
+
+@transaction.atomic
+def mark_subscription_payment_paid(*, payment: SubscriptionPayment) -> SubscriptionPayment:
+    if payment.status != SubscriptionPayment.STATUS_PAID:
+        payment.status = SubscriptionPayment.STATUS_PAID
+        payment.provider_status = PlategaClient.STATUS_CONFIRMED
+        payment.paid_at = timezone.now()
+        activate_subscription_plan(user=payment.user, plan_code=payment.plan_code)
+        payment.save(
+            update_fields=[
+                "status",
+                "provider_status",
+                "paid_at",
+                "updated_at",
+            ]
+        )
+
+    return payment
+
+
+def mark_subscription_payment_canceled(*, payment: SubscriptionPayment) -> SubscriptionPayment:
+    payment.status = SubscriptionPayment.STATUS_CANCELED
+    if not payment.provider_status:
+        payment.provider_status = PlategaClient.STATUS_CANCELED
+    payment.save(update_fields=["status", "provider_status", "updated_at"])
+    return payment
+
+
+def mark_subscription_payment_failed(*, payment: SubscriptionPayment) -> SubscriptionPayment:
+    payment.status = SubscriptionPayment.STATUS_FAILED
+    payment.save(update_fields=["status", "updated_at"])
+    return payment
+
+
 def _build_payment_payload(*, payment: SubscriptionPayment) -> dict:
     return {
         "type": "subscription",

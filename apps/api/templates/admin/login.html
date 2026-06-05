@@ -1,0 +1,160 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+{% block usertools %}{% endblock %}
+{% block nav-global %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+
+{% block content %}
+  <div class="admin-login-loader" data-admin-login-loader aria-hidden="true">
+    <div class="admin-login-loader__shell">
+      <div class="admin-login-loader__orbit"></div>
+      <div class="admin-login-loader__card">
+        <div class="admin-login-loader__logo">Λ</div>
+        <div class="admin-login-loader__text">INFINDA</div>
+        <div class="admin-login-loader__status" data-admin-login-loader-status>инициализация панели</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-visual" aria-hidden="true">
+    <div class="login-visual__mesh"></div>
+    <div class="login-visual__glow login-visual__glow--left"></div>
+    <div class="login-visual__glow login-visual__glow--right"></div>
+    <div class="login-visual__orbit"></div>
+    <div class="login-visual__orbit login-visual__orbit--small"></div>
+  </div>
+
+  <div id="content-main">
+    <section class="login-shell">
+      <aside class="login-brand-panel">
+        <div class="login-brand-panel__content">
+          <div class="login-brand-panel__eyebrow">INFINDA ADMIN</div>
+          <h1 class="login-brand-panel__title">Управление сервисом без хаоса</h1>
+          <p class="login-brand-panel__text">
+            Единая внутренняя система для контроля платежей, подписок, устройств, пользователей и ключевых событий проекта.
+          </p>
+        </div>
+
+        <div class="login-brand-panel__content">
+          <div class="login-brand-panel__chips">
+            <span class="login-brand-panel__chip">Платежи и финансы</span>
+            <span class="login-brand-panel__chip">Подписки и продления</span>
+            <span class="login-brand-panel__chip">Устройства и аудит</span>
+          </div>
+        </div>
+
+        <div class="login-brand-panel__metrics">
+          <div class="login-brand-panel__metric">
+            <div class="login-brand-panel__metric-value">24/7</div>
+            <div class="login-brand-panel__metric-label">контроль критичных административных операций</div>
+          </div>
+          <div class="login-brand-panel__metric">
+            <div class="login-brand-panel__metric-value">1</div>
+            <div class="login-brand-panel__metric-label">единая консоль для поддержки, платежей и подписок</div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="login-form-panel">
+        <div class="login-form-panel__inner">
+          <div class="login-form-panel__theme-row">
+            <button type="button" class="admin-theme-toggle login-theme-toggle" data-admin-theme-toggle aria-pressed="false">
+              <span class="admin-theme-toggle__label">Тема</span>
+              <span class="admin-theme-toggle__track" aria-hidden="true">
+                <span class="admin-theme-toggle__icon admin-theme-toggle__icon--sun">☀</span>
+                <span class="admin-theme-toggle__icon admin-theme-toggle__icon--moon">☾</span>
+                <span class="admin-theme-toggle__thumb"></span>
+              </span>
+            </button>
+          </div>
+
+          <div class="login-form-panel__content">
+            <h2 class="login-form-panel__title">Вход в административную панель</h2>
+            <p class="login-form-panel__text">
+              Авторизуйся под учетной записью администратора, чтобы управлять внутренними данными и чувствительными сценариями системы.
+            </p>
+          </div>
+
+          {% if form.errors and not form.non_field_errors %}
+            <p class="errornote">
+              {% if form.errors.items|length == 1 %}
+                {% translate "Пожалуйста, исправьте ошибку ниже." %}
+              {% else %}
+                {% translate "Пожалуйста, исправьте ошибки ниже." %}
+              {% endif %}
+            </p>
+          {% endif %}
+
+          {% if form.non_field_errors %}
+            {% for error in form.non_field_errors %}
+              <p class="errornote">{{ error }}</p>
+            {% endfor %}
+          {% endif %}
+
+          {% if user.is_authenticated %}
+            <p class="errornote">
+              {% blocktranslate trimmed %}
+                Вы уже вошли как пользователь, у которого нет доступа к этой странице. Войдите под другой учетной записью.
+              {% endblocktranslate %}
+            </p>
+          {% endif %}
+
+          <form action="{{ app_path }}" method="post" id="login-form">
+            {% csrf_token %}
+            <div class="login-field" data-login-field data-field-label="Логин">
+              <div class="form-row">
+                {{ form.username.errors }}
+                {{ form.username.label_tag }}
+                <div class="login-field__control">
+                  {{ form.username }}
+                </div>
+                <span class="login-field__status" aria-hidden="true">
+                  <span class="login-field__status-dot"></span>
+                  <span>Проверено</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="login-field" data-login-field data-field-label="Пароль">
+              <div class="form-row">
+                {{ form.password.errors }}
+                {{ form.password.label_tag }}
+                <div class="login-field__control">
+                  {{ form.password }}
+                  <button type="button" class="login-password-toggle" data-login-password-toggle>
+                    Показать
+                  </button>
+                </div>
+                <span class="login-field__status" aria-hidden="true">
+                  <span class="login-field__status-dot"></span>
+                  <span>Проверено</span>
+                </span>
+                <input type="hidden" name="next" value="{{ next }}">
+              </div>
+            </div>
+
+            <div class="login-form-status" data-login-form-status>
+              <span class="login-form-status__dot"></span>
+              <span data-login-form-status-text>Статус входа</span>
+            </div>
+
+            {% url 'admin_password_reset' as password_reset_url %}
+            {% if password_reset_url %}
+              <div>
+                <a href="{{ password_reset_url }}">Забыли пароль?</a>
+              </div>
+            {% endif %}
+            <div class="submit-row">
+              <input type="submit" value="Войти" data-login-submit>
+            </div>
+          </form>
+        </div>
+      </section>
+    </section>
+  </div>
+{% endblock %}

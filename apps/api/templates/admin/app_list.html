@@ -1,0 +1,106 @@
+{% if app_list %}
+  <div class="admin-workspace-nav">
+    <a
+      class="admin-workspace-link{% if request.path == '/admin/' and request.GET.workspace != 'problems' %} admin-workspace-link--active{% endif %}"
+      href="{% url 'admin:index' %}?workspace=finance#dashboard-zone-finance"
+    >
+      <span class="admin-workspace-link__icon">FN</span>
+      <span class="admin-workspace-link__body">
+        <span class="admin-workspace-link__title">Финансы</span>
+        <span class="admin-workspace-link__note">Выручка, оплаты и сводка</span>
+      </span>
+    </a>
+    <a
+      class="admin-workspace-link{% if '/admin/subscription/subscription/' in request.path or '/admin/subscription/subscriptionroute/' in request.path %} admin-workspace-link--active{% endif %}"
+      href="{% url 'admin:subscription_subscription_changelist' %}"
+    >
+      <span class="admin-workspace-link__icon">SB</span>
+      <span class="admin-workspace-link__body">
+        <span class="admin-workspace-link__title">Подписки</span>
+        <span class="admin-workspace-link__note">Статусы, сроки и маршруты</span>
+      </span>
+    </a>
+    <a
+      class="admin-workspace-link{% if request.GET.workspace == 'problems' or '/admin/subscription/subscriptionpayment/' in request.path %} admin-workspace-link--active{% endif %}"
+      href="{% url 'admin:index' %}?workspace=problems#dashboard-zone-problems"
+    >
+      <span class="admin-workspace-link__icon">!!</span>
+      <span class="admin-workspace-link__body">
+        <span class="admin-workspace-link__title">Проблемы</span>
+        <span class="admin-workspace-link__note">Сбои, pending и отмены</span>
+      </span>
+    </a>
+    <a
+      class="admin-workspace-link{% if '/admin/devices/device/' in request.path %} admin-workspace-link--active{% endif %}"
+      href="{% url 'admin:devices_device_changelist' %}"
+    >
+      <span class="admin-workspace-link__icon">DV</span>
+      <span class="admin-workspace-link__body">
+        <span class="admin-workspace-link__title">Устройства</span>
+        <span class="admin-workspace-link__note">Контроль, отзыв и активность</span>
+      </span>
+    </a>
+  </div>
+
+  <div class="admin-app-grid">
+    {% for app in app_list %}
+      {% if app.app_url and '/devices/' in app.app_url %}
+      {% elif app.app_url and '/subscription/' in app.app_url %}
+      {% else %}
+      <details class="admin-app-card{% if app.app_url and app.app_url in request.path %} admin-app-card--active{% endif %}">
+        <summary class="admin-app-card__summary">
+          <div class="admin-app-card__head">
+            <span class="admin-app-card__icon">
+              {% if app.app_url and '/subscription/' in app.app_url %}
+                SB
+              {% elif app.app_url and '/devices/' in app.app_url %}
+                DV
+              {% elif app.app_url and '/activity/' in app.app_url %}
+                LG
+              {% elif app.app_url and '/profile/' in app.app_url %}
+                PF
+              {% elif app.app_url and '/auth/' in app.app_url %}
+                AU
+              {% elif app.app_url and '/authtoken/' in app.app_url %}
+                TK
+              {% else %}
+                AD
+              {% endif %}
+            </span>
+            <h3 class="admin-app-card__title">
+              {% if app.app_url %}
+                <a href="{{ app.app_url }}">{{ app.name }}</a>
+              {% else %}
+                {{ app.name }}
+              {% endif %}
+            </h3>
+            <span class="admin-app-card__count">{{ app.models|length }}</span>
+          </div>
+          <span class="admin-app-card__chevron" aria-hidden="true"></span>
+        </summary>
+        <div class="admin-app-card__models">
+          {% for model in app.models %}
+            <div class="admin-app-model{% if model.admin_url and model.admin_url in request.path %} admin-app-model--active{% endif %}">
+              <div class="admin-app-model__name">
+                {% if model.admin_url %}
+                  <a href="{{ model.admin_url }}">{{ model.name }}</a>
+                {% else %}
+                  {{ model.name }}
+                {% endif %}
+              </div>
+              <div class="admin-app-model__actions">
+                {% if model.admin_url %}
+                  <a href="{{ model.admin_url }}">Список</a>
+                {% endif %}
+                {% if model.add_url %}
+                  <a href="{{ model.add_url }}">Добавить</a>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}

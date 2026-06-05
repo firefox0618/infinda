@@ -6,8 +6,8 @@ import type {
 import {
   devicesApiPaths,
   type FilledSubscriptionDto,
+  type SubscriptionCheckoutRequestDto,
   type SubscriptionCheckoutDto,
-  type PurchaseSubscriptionRequestDto,
   profileApiPaths,
   subscriptionApiPaths,
   type DeviceDto,
@@ -248,8 +248,11 @@ export async function fetchCabinetSubscriptionPlans(token: string) {
   return payload.map(mapSubscriptionPlan);
 }
 
-export async function purchaseCabinetSubscription(token: string, planCode: string) {
-  const requestPayload: PurchaseSubscriptionRequestDto = {
+export async function createCabinetSubscriptionCheckout(
+  token: string,
+  planCode: string,
+) {
+  const requestPayload: SubscriptionCheckoutRequestDto = {
     plan_code: planCode,
   };
 
