@@ -3,36 +3,41 @@
 import { useState } from "react";
 
 import styles from "./cabinet-page.module.css";
+import type { CabinetDevice } from "./cabinet-models";
 
 import { DeviceIcon } from "./cabinet-icons";
 
-type CabinetDevice = {
-  name: string;
-  icon: "desktop" | "mobile" | "laptop";
-  ip: string;
-  lastSeen: string;
-  status: "online" | "offline";
-  meta: string;
-};
-
 type CabinetDevicesPanelProps = {
   devices: readonly CabinetDevice[];
-  onRevokeDevice: (deviceName: string) => void;
+  onRevokeDevice: (deviceId: number) => void;
 };
 
 export function CabinetDevicesPanel({
   devices,
   onRevokeDevice,
 }: CabinetDevicesPanelProps) {
-  const [expandedDeviceName, setExpandedDeviceName] = useState<string | null>(
-    devices[0]?.name ?? null,
-  );
+  const [expandedDeviceId, setExpandedDeviceId] = useState<number | null>(null);
+
+  if (devices.length === 0) {
+    return (
+      <div className={styles.devicesList}>
+        <article className={styles.deviceListItem}>
+          <div className={styles.deviceExpanded}>
+            <div className={styles.emptyState}>
+              <strong>Подключенных устройств пока нет</strong>
+              <p>После первого входа с клиента здесь появится список активных подключений.</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.devicesList}>
       {devices.map((device, index) => (
         <article
-          key={device.name}
+          key={device.id}
           className={styles.deviceListItem}
           style={{ animationDelay: `${index * 90}ms` }}
         >
@@ -41,8 +46,8 @@ export function CabinetDevicesPanel({
               type="button"
               className={styles.deviceSummaryButton}
               onClick={() =>
-                setExpandedDeviceName((current) =>
-                  current === device.name ? null : device.name,
+                setExpandedDeviceId((current) =>
+                  current === device.id ? null : device.id,
                 )
               }
             >
@@ -69,13 +74,13 @@ export function CabinetDevicesPanel({
             <button
               type="button"
               className={styles.revokeInlineButton}
-              onClick={() => onRevokeDevice(device.name)}
+              onClick={() => onRevokeDevice(device.id)}
             >
               Отозвать
             </button>
           </div>
 
-          {expandedDeviceName === device.name ? (
+          {expandedDeviceId === device.id ? (
             <div className={styles.deviceExpanded}>
               <div className={styles.deviceInfoGrid}>
                 <div className={styles.infoTile}>
@@ -88,11 +93,11 @@ export function CabinetDevicesPanel({
                 </div>
                 <div className={styles.infoTile}>
                   <span>Платформа</span>
-                  <strong>{device.meta.split(" · ")[0]}</strong>
+                  <strong>{device.platformName}</strong>
                 </div>
                 <div className={styles.infoTile}>
                   <span>Клиент</span>
-                  <strong>{device.meta.split(" · ")[1] ?? device.meta}</strong>
+                  <strong>{device.clientName}</strong>
                 </div>
               </div>
             </div>

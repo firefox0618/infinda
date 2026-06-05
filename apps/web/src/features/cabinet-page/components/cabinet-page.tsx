@@ -1,52 +1,63 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import {
+  fetchCurrentUser,
+  logoutCurrentUser,
+} from "@/shared/auth/auth-client";
+import {
+  clearAuthSession,
+  readAuthToken,
+  readStoredAuthUser,
+  replaceStoredAuthUser,
+} from "@/shared/auth/auth-storage";
+import type { AuthUser } from "@/shared/auth/auth-types";
 
 import styles from "./cabinet-page.module.css";
+import {
+  fetchCabinetDevices,
+  fetchCabinetProfile,
+  fetchCabinetSubscription,
+  revokeCabinetDevice,
+  updateCabinetProfile,
+} from "../api/cabinet-client";
 
 import { CabinetDevicesPanel } from "./cabinet-devices-panel";
 import { CabinetOverviewPanel } from "./cabinet-overview-panel";
 import { CabinetSidebar } from "./cabinet-sidebar";
 import { CabinetSubscriptionPanel } from "./cabinet-subscription-panel";
 import { CabinetSupportPanel } from "./cabinet-support-panel";
-import type { CabinetTab } from "./cabinet-types";
 import {
-  cabinetDevices,
   cabinetMessages,
   cabinetOverviewStats,
-  cabinetSubscriptionDetails,
-  cabinetSubscriptionLinks,
 } from "../data/cabinet-content";
+import type {
+  CabinetDevice,
+  CabinetMessage,
+  CabinetOverviewStat,
+  CabinetSubscription,
+  CabinetTab,
+} from "./cabinet-models";
 
-type CountryCode = (typeof cabinetSubscriptionLinks.countries)[number]["code"];
-
-type CabinetDevice = {
-  name: string;
-  icon: "desktop" | "mobile" | "laptop";
-  ip: string;
-  lastSeen: string;
-  status: "online" | "offline";
-  meta: string;
-};
-
-type CabinetMessage = {
-  id: string;
-  author: string;
-  side: "support" | "user";
-  text: string;
-  attachments?: readonly string[];
-};
+const mobileCabinetTabs: { id: CabinetTab; label: string }[] = [
+  { id: "overview", label: "Обзор" },
+  { id: "subscription", label: "Подписка" },
+  { id: "devices", label: "Устройства" },
+  { id: "support", label: "Поддержка" },
+];
 
 export function CabinetPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<CabinetTab>("overview");
   const [isSidebarCompact, setIsSidebarCompact] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState<CountryCode>(
-    cabinetSubscriptionLinks.countries[0].code,
-  );
-  const [devices, setDevices] = useState<CabinetDevice[]>([...cabinetDevices]);
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [devices, setDevices] = useState<CabinetDevice[]>([]);
+  const [subscription, setSubscription] = useState<CabinetSubscription | null>(null);
   const [messages, setMessages] = useState<CabinetMessage[]>([
     ...cabinetMessages,
   ]);
@@ -54,8 +65,19 @@ export function CabinetPage() {
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
   const [mainCopyLabel, setMainCopyLabel] = useState("Скопировать ссылку");
   const [serverCopyLabel, setServerCopyLabel] = useState("Скопировать маршрут");
-  const [profileEmail, setProfileEmail] = useState("alexey@infinda.com");
-  const [profileTelegram, setProfileTelegram] = useState("@alexey_infinda");
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(readStoredAuthUser());
+  const [isSessionResolved, setIsSessionResolved] = useState(false);
+  const [profileEmail, setProfileEmail] = useState(
+    readStoredAuthUser()?.email ?? "",
+  );
+  const [profileFirstName, setProfileFirstName] = useState(
+    readStoredAuthUser()?.first_name ?? "",
+  );
+  const [profileLastName, setProfileLastName] = useState(
+    readStoredAuthUser()?.last_name ?? "",
+  );
+  const [profileTelegram, setProfileTelegram] = useState("@telegram");
+  const [profileCurrentPassword, setProfileCurrentPassword] = useState("");
   const [profilePassword, setProfilePassword] = useState("");
 
   const currentSection = useMemo(() => {
@@ -74,13 +96,98 @@ export function CabinetPage() {
     return { title: "Поддержка", subtitle: "Чат и быстрые решения" };
   }, [activeTab]);
 
-  const selectedCountryLink = useMemo(
+  const subscriptionDetails = useMemo(
     () =>
-      cabinetSubscriptionLinks.countries.find(
-        (country) => country.code === selectedCountry,
-      ) ?? cabinetSubscriptionLinks.countries[0],
-    [selectedCountry],
+      subscription
+        ? [
+            { label: "Тариф", value: subscription.planName },
+            { label: "Активна до", value: subscription.activeUntil },
+            { label: "Осталось дней", value: String(subscription.remainingDays) },
+            { label: "Устройств", value: `${devices.length} из ${subscription.maxDevices}` },
+          ]
+        : [],
+    [devices, subscription],
   );
+
+  const selectedCountryLink = useMemo(
+    () => subscription?.countries.find((country) => country.code === selectedCountry) ?? null,
+    [selectedCountry, subscription],
+  );
+
+  const overviewStats = useMemo<readonly CabinetOverviewStat[]>(() => {
+    const onlineDevicesCount = devices.filter(
+      (device) => device.status === "online",
+    ).length;
+
+    return cabinetOverviewStats.map((stat) => {
+      if (stat.title === "Осталось дней") {
+        return {
+          ...stat,
+          value: subscription ? String(subscription.remainingDays) : stat.value,
+          note: subscription ? "подписка активна" : stat.note,
+        };
+      }
+
+      if (stat.title === "Активные устройства") {
+        return {
+          ...stat,
+          value: String(onlineDevicesCount),
+          note: subscription
+            ? `${devices.length} из ${subscription.maxDevices} доступных`
+            : `${devices.length} устройств в кабинете`,
+        };
+      }
+
+      return stat;
+    });
+  }, [devices, subscription]);
+
+  useEffect(() => {
+    const token = readAuthToken();
+
+    if (!token) {
+      clearAuthSession();
+      router.replace("/auth");
+      return;
+    }
+
+    let isCancelled = false;
+
+    void Promise.all([
+      fetchCurrentUser(token),
+      fetchCabinetProfile(token),
+      fetchCabinetDevices(token),
+      fetchCabinetSubscription(token),
+    ])
+      .then(([user, profile, fetchedDevices, fetchedSubscription]) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setCurrentUser(user);
+        replaceStoredAuthUser(user);
+        setDevices(fetchedDevices);
+        setSubscription(fetchedSubscription);
+        setSelectedCountry(fetchedSubscription.countries[0]?.code ?? "");
+        setProfileEmail(profile.email);
+        setProfileFirstName(profile.firstName);
+        setProfileLastName(profile.lastName);
+        setProfileTelegram(profile.telegramHandle);
+        setIsSessionResolved(true);
+      })
+      .catch(() => {
+        if (isCancelled) {
+          return;
+        }
+
+        clearAuthSession();
+        router.replace("/auth");
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [router]);
 
   const writeToClipboard = async (value: string, scope: "main" | "server") => {
     try {
@@ -125,14 +232,108 @@ export function CabinetPage() {
     setAttachedFiles([]);
   };
 
+  const handleLogout = async () => {
+    const token = readAuthToken();
+
+    try {
+      if (token) {
+        await logoutCurrentUser(token);
+      }
+    } finally {
+      clearAuthSession();
+      router.replace("/auth");
+    }
+  };
+
+  const handleRevokeDevice = async (deviceId: number) => {
+    const token = readAuthToken();
+
+    if (!token) {
+      clearAuthSession();
+      router.replace("/auth");
+      return;
+    }
+
+    await revokeCabinetDevice(token, deviceId);
+    setDevices((current) => current.filter((device) => device.id !== deviceId));
+  };
+
+  const handleSaveProfile = async () => {
+    const token = readAuthToken();
+
+    if (!token) {
+      clearAuthSession();
+      router.replace("/auth");
+      return;
+    }
+
+    const updatedProfile = await updateCabinetProfile(token, {
+      email: profileEmail,
+      firstName: profileFirstName,
+      lastName: profileLastName,
+      telegramHandle: profileTelegram,
+      currentPassword: profileCurrentPassword || undefined,
+      newPassword: profilePassword || undefined,
+    });
+
+    const nextUser = currentUser
+      ? {
+          ...currentUser,
+          email: updatedProfile.email,
+          first_name: updatedProfile.firstName,
+          last_name: updatedProfile.lastName,
+        }
+      : null;
+
+    setCurrentUser(nextUser);
+    if (nextUser) {
+      replaceStoredAuthUser(nextUser);
+    }
+    setProfileEmail(updatedProfile.email);
+    setProfileFirstName(updatedProfile.firstName);
+    setProfileLastName(updatedProfile.lastName);
+    setProfileTelegram(updatedProfile.telegramHandle);
+    setProfileCurrentPassword("");
+    setProfilePassword("");
+    setIsProfileModalOpen(false);
+  };
+
+  if (!isSessionResolved) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.background} aria-hidden="true" />
+        <div className={styles.container}>
+          <section className={styles.workspace}>
+            <div className={styles.content}>
+              <section className={styles.pageTop}>
+                <div className={styles.pageTitle}>
+                  <span className={styles.statusDot} aria-hidden="true" />
+                  <div>
+                    <h1>Проверка доступа</h1>
+                    <p>Подтверждаем текущую сессию…</p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.background} aria-hidden="true" />
 
       <div className={styles.container}>
-        <section className={styles.workspace}>
+        <section
+          className={`${styles.workspace} ${
+            isSidebarCompact ? styles.workspaceCompact : ""
+          }`}
+        >
           <CabinetSidebar
             activeTab={activeTab}
+            currentUser={currentUser}
             isCompact={isSidebarCompact}
             isMobileOpen={isMobileSidebarOpen}
             onToggleCompact={() => {
@@ -145,6 +346,9 @@ export function CabinetPage() {
             }}
             onCloseMobile={() => setIsMobileSidebarOpen(false)}
             onOpenProfile={() => setIsProfileModalOpen(true)}
+            onLogout={() => {
+              void handleLogout();
+            }}
             onSelectTab={setActiveTab}
           />
 
@@ -161,58 +365,64 @@ export function CabinetPage() {
               <div className={styles.pageActions}>
                 <button
                   type="button"
-                  className={styles.topButton}
-                  onClick={() => setActiveTab("support")}
-                >
-                  Поддержка
-                </button>
-                <button
-                  type="button"
                   className={`${styles.topButton} ${styles.topButtonPrimary}`}
                   onClick={() => setIsRenewModalOpen(true)}
                 >
                   Продлить
                 </button>
-                <button
-                  type="button"
-                  className={styles.mobileMenuButton}
-                  onClick={() => setIsMobileSidebarOpen(true)}
-                >
-                  Меню
-                </button>
+              </div>
+            </section>
+
+            <section className={styles.mobileCabinetBar}>
+              <div className={styles.mobileCabinetTabs} aria-label="Разделы кабинета">
+                {mobileCabinetTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={`${styles.mobileCabinetTab} ${
+                      activeTab === tab.id ? styles.mobileCabinetTabActive : ""
+                    }`}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </section>
 
             {activeTab === "overview" ? (
               <CabinetOverviewPanel
-                stats={cabinetOverviewStats}
-                mainLink={cabinetSubscriptionLinks.main}
+                stats={overviewStats}
+                mainLink={subscription?.mainLink ?? ""}
                 devices={devices}
                 copyLabel={mainCopyLabel}
                 onCopyMainLink={() =>
-                  void writeToClipboard(cabinetSubscriptionLinks.main, "main")
+                  subscription
+                    ? void writeToClipboard(subscription.mainLink, "main")
+                    : undefined
                 }
                 onOpenTab={setActiveTab}
               />
             ) : null}
 
-            {activeTab === "subscription" ? (
+            {activeTab === "subscription" && subscription ? (
               <CabinetSubscriptionPanel
-                mainLink={cabinetSubscriptionLinks.main}
-                countries={cabinetSubscriptionLinks.countries}
+                mainLink={subscription.mainLink}
+                countries={subscription.countries}
                 selectedCountryCode={selectedCountry}
-                selectedCountryUrl={selectedCountryLink.url}
-                details={cabinetSubscriptionDetails}
+                selectedCountryUrl={selectedCountryLink?.url ?? ""}
+                details={subscriptionDetails}
                 mainCopyLabel={mainCopyLabel}
                 serverCopyLabel={serverCopyLabel}
-                onSelectCountry={(countryCode) =>
-                  setSelectedCountry(countryCode as CountryCode)
-                }
+                onOpenRenew={() => setIsRenewModalOpen(true)}
+                onSelectCountry={setSelectedCountry}
                 onCopyMainLink={() =>
-                  void writeToClipboard(cabinetSubscriptionLinks.main, "main")
+                  void writeToClipboard(subscription.mainLink, "main")
                 }
                 onCopyCountryLink={() =>
-                  void writeToClipboard(selectedCountryLink.url, "server")
+                  selectedCountryLink
+                    ? void writeToClipboard(selectedCountryLink.url, "server")
+                    : undefined
                 }
               />
             ) : null}
@@ -220,11 +430,9 @@ export function CabinetPage() {
             {activeTab === "devices" ? (
               <CabinetDevicesPanel
                 devices={devices}
-                onRevokeDevice={(deviceName) =>
-                  setDevices((current) =>
-                    current.filter((device) => device.name !== deviceName),
-                  )
-                }
+                onRevokeDevice={(deviceId) => {
+                  void handleRevokeDevice(deviceId);
+                }}
               />
             ) : null}
 
@@ -336,6 +544,26 @@ export function CabinetPage() {
 
             <div className={styles.settingsGrid}>
               <label className={styles.settingsField}>
+                <span>Имя</span>
+                <input
+                  className={styles.settingsInput}
+                  type="text"
+                  value={profileFirstName}
+                  onChange={(event) => setProfileFirstName(event.target.value)}
+                />
+              </label>
+
+              <label className={styles.settingsField}>
+                <span>Фамилия</span>
+                <input
+                  className={styles.settingsInput}
+                  type="text"
+                  value={profileLastName}
+                  onChange={(event) => setProfileLastName(event.target.value)}
+                />
+              </label>
+
+              <label className={styles.settingsField}>
                 <span>Email</span>
                 <input
                   className={styles.settingsInput}
@@ -352,6 +580,17 @@ export function CabinetPage() {
                   type="text"
                   value={profileTelegram}
                   onChange={(event) => setProfileTelegram(event.target.value)}
+                />
+              </label>
+
+              <label className={styles.settingsField}>
+                <span>Текущий пароль</span>
+                <input
+                  className={styles.settingsInput}
+                  type="password"
+                  value={profileCurrentPassword}
+                  onChange={(event) => setProfileCurrentPassword(event.target.value)}
+                  placeholder="Введите текущий пароль"
                 />
               </label>
 
@@ -379,8 +618,7 @@ export function CabinetPage() {
                 type="button"
                 className={styles.primaryButton}
                 onClick={() => {
-                  setProfilePassword("");
-                  setIsProfileModalOpen(false);
+                  void handleSaveProfile();
                 }}
               >
                 Сохранить

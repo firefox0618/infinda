@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { CabinetTab } from "./cabinet-types";
+import type { CabinetTab } from "./cabinet-models";
 
 function iconPath(children: ReactNode) {
   return (

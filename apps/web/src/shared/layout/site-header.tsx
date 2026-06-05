@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSyncExternalStore } from "react";
+
+import {
+  readHasAuthSession,
+  subscribeToAuthStorage,
+} from "@/shared/auth/auth-storage";
 
 import styles from "./site-header.module.css";
 
@@ -10,7 +16,13 @@ import { siteNavigationItems } from "./site-content";
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const shouldShowAuthCta = pathname !== "/auth" && pathname !== "/cabinet";
+  const hasAuthSession = useSyncExternalStore(
+    subscribeToAuthStorage,
+    readHasAuthSession,
+    () => false,
+  );
+  const shouldShowAuthCta = pathname !== "/auth" && !hasAuthSession;
+  const shouldShowCabinetCta = pathname !== "/cabinet" && hasAuthSession;
 
   return (
     <header className={styles.header}>
@@ -37,6 +49,10 @@ export function SiteHeader() {
         {shouldShowAuthCta ? (
           <Link href="/auth" className={styles.cta}>
             Вход
+          </Link>
+        ) : shouldShowCabinetCta ? (
+          <Link href="/cabinet" className={styles.cta}>
+            Профиль
           </Link>
         ) : (
           <span className={`${styles.cta} ${styles.ctaHidden}`} aria-hidden="true">

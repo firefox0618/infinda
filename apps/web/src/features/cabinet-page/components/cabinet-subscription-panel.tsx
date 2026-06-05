@@ -21,6 +21,7 @@ type CabinetSubscriptionPanelProps = {
   details: readonly SubscriptionDetail[];
   mainCopyLabel: string;
   serverCopyLabel: string;
+  onOpenRenew: () => void;
   onSelectCountry: (countryCode: string) => void;
   onCopyMainLink: () => void;
   onCopyCountryLink: () => void;
@@ -34,6 +35,7 @@ export function CabinetSubscriptionPanel({
   details,
   mainCopyLabel,
   serverCopyLabel,
+  onOpenRenew,
   onSelectCountry,
   onCopyMainLink,
   onCopyCountryLink,
@@ -46,6 +48,13 @@ export function CabinetSubscriptionPanel({
             <div className={styles.panelTitle}>Ссылка подписки</div>
             <div className={styles.panelSub}>Один общий доступ для всех клиентов</div>
           </div>
+          <button
+            type="button"
+            className={styles.topButton}
+            onClick={onOpenRenew}
+          >
+            Продлить
+          </button>
         </div>
         <div className={styles.panelBody}>
           <div className={styles.subscriptionBlock}>

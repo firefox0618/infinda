@@ -1,12 +1,17 @@
- "use client";
+"use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+
+import { fetchCurrentUser } from "@/shared/auth/auth-client";
+import { clearAuthSession, readAuthToken } from "@/shared/auth/auth-storage";
 
 import styles from "./auth-page.module.css";
 
 import { AuthPanel } from "./auth-panel";
 
 export function AuthPage() {
+  const router = useRouter();
   const [isLoaderHidden, setIsLoaderHidden] = useState(false);
 
   useEffect(() => {
@@ -16,6 +21,32 @@ export function AuthPage() {
 
     return () => window.clearTimeout(hideTimer);
   }, []);
+
+  useEffect(() => {
+    const token = readAuthToken();
+
+    if (!token) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void fetchCurrentUser(token)
+      .then(() => {
+        if (!isCancelled) {
+          router.replace("/cabinet");
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          clearAuthSession();
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [router]);
 
   return (
     <div className={styles.page}>

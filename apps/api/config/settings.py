@@ -19,6 +19,11 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework.authtoken",
+    "apps.auth.apps.AuthConfig",
+    "apps.profile.apps.ProfileConfig",
+    "apps.devices.apps.DevicesConfig",
+    "apps.subscription.apps.SubscriptionConfig",
     "apps.health.apps.HealthConfig",
 ]
 
@@ -74,8 +79,8 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+LANGUAGE_CODE = "ru-ru"
+TIME_ZONE = "Asia/Yekaterinburg"
 
 USE_I18N = True
 USE_TZ = True
@@ -89,5 +94,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
+    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
     ],
 }

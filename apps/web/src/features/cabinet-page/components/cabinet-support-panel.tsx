@@ -3,16 +3,9 @@
 import { useId } from "react";
 
 import styles from "./cabinet-page.module.css";
+import type { CabinetMessage } from "./cabinet-models";
 
 import { AttachIcon, SupportPulseIcon } from "./cabinet-icons";
-
-type CabinetMessage = {
-  id: string;
-  author: string;
-  side: "support" | "user";
-  text: string;
-  attachments?: readonly string[];
-};
 
 type CabinetSupportPanelProps = {
   attachedFiles: readonly string[];

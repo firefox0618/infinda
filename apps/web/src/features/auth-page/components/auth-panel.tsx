@@ -4,6 +4,16 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  AuthRequestError,
+  fetchCurrentUser,
+  loginWithPassword,
+} from "@/shared/auth/auth-client";
+import {
+  clearAuthSession,
+  persistAuthSession,
+} from "@/shared/auth/auth-storage";
+
 import styles from "./auth-page.module.css";
 
 import { authPageContent } from "../data/auth-content";
@@ -26,11 +36,6 @@ type FieldErrors = {
 };
 
 type LoginState = "idle" | "loading" | "success" | "error";
-
-const DEMO_LOGIN = {
-  email: "alexey@infinda.com",
-  password: "infinda123",
-} as const;
 
 export function AuthPanel() {
   const router = useRouter();
@@ -70,7 +75,13 @@ export function AuthPanel() {
 
   const validateEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
 
-  const handleLoginSubmit = () => {
+  const wait = (durationMs: number) =>
+    new Promise<void>((resolve) => {
+      const timerId = window.setTimeout(resolve, durationMs);
+      timersRef.current.push(timerId);
+    });
+
+  const handleLoginSubmit = async () => {
     timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     timersRef.current = [];
 
@@ -92,31 +103,63 @@ export function AuthPanel() {
       return;
     }
 
+    clearAuthSession();
     setLoginState("loading");
     setLoginStatusText("Проверка данных…");
+    setErrors({});
 
-    const verifyTimer = window.setTimeout(() => {
-      const isMatch =
-        loginEmail.trim().toLowerCase() === DEMO_LOGIN.email &&
-        loginPassword === DEMO_LOGIN.password;
+    const startedAt = performance.now();
 
-      if (!isMatch) {
-        setLoginState("error");
-        setLoginStatusText("Данные не совпадают. Попробуй снова.");
-        return;
+    try {
+      const loginSession = await loginWithPassword({
+        email: loginEmail.trim(),
+        password: loginPassword,
+      });
+      const currentUser = await fetchCurrentUser(loginSession.token);
+
+      const elapsedMs = performance.now() - startedAt;
+      const minimumLoadingMs = 900;
+      if (elapsedMs < minimumLoadingMs) {
+        await wait(minimumLoadingMs - elapsedMs);
       }
 
       setLoginState("success");
       setLoginStatusText("Данные подтверждены. Выполняем вход…");
+      persistAuthSession(
+        {
+          token: loginSession.token,
+          user: currentUser,
+        },
+        { rememberMe },
+      );
 
       const redirectTimer = window.setTimeout(() => {
         router.push("/cabinet");
       }, 900);
 
       timersRef.current.push(redirectTimer);
-    }, 1500);
+    } catch (error) {
+      clearAuthSession();
 
-    timersRef.current.push(verifyTimer);
+      const elapsedMs = performance.now() - startedAt;
+      const minimumLoadingMs = 650;
+      if (elapsedMs < minimumLoadingMs) {
+        await wait(minimumLoadingMs - elapsedMs);
+      }
+
+      if (error instanceof AuthRequestError) {
+        setErrors((currentErrors) => ({
+          ...currentErrors,
+          loginEmail: error.fieldErrors?.email,
+          loginPassword: error.fieldErrors?.password,
+        }));
+        setLoginStatusText(error.message);
+      } else {
+        setLoginStatusText("Не удалось выполнить вход. Попробуй снова.");
+      }
+
+      setLoginState("error");
+    }
   };
 
   const handleRegisterSubmit = () => {

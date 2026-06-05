@@ -1,9 +1,11 @@
 "use client";
 
+import type { AuthUser } from "@/shared/auth/auth-types";
+
 import styles from "./cabinet-page.module.css";
 
 import { CabinetNavIcon, LogoutIcon } from "./cabinet-icons";
-import type { CabinetTab } from "./cabinet-types";
+import type { CabinetTab } from "./cabinet-models";
 
 const cabinetTabs: { id: CabinetTab; label: string; note: string }[] = [
   { id: "overview", label: "Обзор", note: "общая картина" },
@@ -14,23 +16,33 @@ const cabinetTabs: { id: CabinetTab; label: string; note: string }[] = [
 
 type CabinetSidebarProps = {
   activeTab: CabinetTab;
+  currentUser: AuthUser | null;
   isCompact: boolean;
   isMobileOpen: boolean;
   onToggleCompact: () => void;
   onCloseMobile: () => void;
   onOpenProfile: () => void;
+  onLogout: () => void;
   onSelectTab: (tab: CabinetTab) => void;
 };
 
 export function CabinetSidebar({
   activeTab,
+  currentUser,
   isCompact,
   isMobileOpen,
   onToggleCompact,
   onCloseMobile,
   onOpenProfile,
+  onLogout,
   onSelectTab,
 }: CabinetSidebarProps) {
+  const userDisplayName =
+    [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(" ") ||
+    currentUser?.username ||
+    "Пользователь";
+  const avatarLetter = userDisplayName.charAt(0).toUpperCase() || "U";
+
   return (
     <>
       <div
@@ -76,6 +88,7 @@ export function CabinetSidebar({
               className={`${styles.sidebarButton} ${
                 activeTab === tab.id ? styles.sidebarButtonActive : ""
               }`}
+              data-tooltip={tab.label}
               onClick={() => {
                 onSelectTab(tab.id);
                 onCloseMobile();
@@ -98,15 +111,24 @@ export function CabinetSidebar({
             className={styles.userCard}
             onClick={onOpenProfile}
             aria-label="Открыть настройки профиля"
+            data-tooltip="Профиль"
           >
-            <div className={styles.userAvatar}>A</div>
+            <div className={styles.userAvatar}>{avatarLetter}</div>
             <div className={styles.userMeta}>
-              <div className={styles.userName}>Алексей</div>
-              <div className={styles.userEmail}>alexey@infinda.com</div>
+              <div className={styles.userName}>{userDisplayName}</div>
+              <div className={styles.userEmail}>
+                {currentUser?.email ?? "email не указан"}
+              </div>
             </div>
           </button>
 
-          <button type="button" className={styles.logoutButton} aria-label="Выйти">
+          <button
+            type="button"
+            className={styles.logoutButton}
+            aria-label="Выйти"
+            data-tooltip="Выйти"
+            onClick={onLogout}
+          >
             <LogoutIcon />
             <span className={styles.logoutLabel}>Выйти</span>
           </button>

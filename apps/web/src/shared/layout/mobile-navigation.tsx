@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+
+import {
+  readHasAuthSession,
+  subscribeToAuthStorage,
+} from "@/shared/auth/auth-storage";
 
 import styles from "./mobile-navigation.module.css";
 
@@ -17,8 +22,14 @@ type MobileNavigationProps = {
 
 export function MobileNavigation({ items }: MobileNavigationProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const hasAuthSession = useSyncExternalStore(
+    subscribeToAuthStorage,
+    readHasAuthSession,
+    () => false,
+  );
   const pathname = usePathname();
-  const shouldShowAuthCta = pathname !== "/auth";
+  const shouldShowAuthCta = pathname !== "/auth" && !hasAuthSession;
+  const shouldShowCabinetCta = pathname !== "/cabinet" && hasAuthSession;
 
   const toggleMenu = () => {
     setIsOpen((currentValue) => !currentValue);
@@ -82,6 +93,10 @@ export function MobileNavigation({ items }: MobileNavigationProps) {
         {shouldShowAuthCta ? (
           <Link href="/auth" className={styles.loginButton} onClick={closeMenu}>
             Вход
+          </Link>
+        ) : shouldShowCabinetCta ? (
+          <Link href="/cabinet" className={styles.loginButton} onClick={closeMenu}>
+            Профиль
           </Link>
         ) : null}
       </div>

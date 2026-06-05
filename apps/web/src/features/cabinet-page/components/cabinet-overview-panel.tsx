@@ -1,4 +1,9 @@
 import styles from "./cabinet-page.module.css";
+import type {
+  CabinetDevice,
+  CabinetOverviewStat,
+  CabinetTab,
+} from "./cabinet-models";
 
 import {
   CopyIcon,
@@ -7,28 +12,13 @@ import {
   SupportPulseIcon,
 } from "./cabinet-icons";
 
-type OverviewStat = {
-  title: string;
-  value: string;
-  note: string;
-};
-
-type OverviewDevice = {
-  name: string;
-  icon: "desktop" | "mobile" | "laptop";
-  ip: string;
-  lastSeen: string;
-  status: "online" | "offline";
-  meta: string;
-};
-
 type CabinetOverviewPanelProps = {
-  stats: readonly OverviewStat[];
+  stats: readonly CabinetOverviewStat[];
   mainLink: string;
-  devices: readonly OverviewDevice[];
+  devices: readonly CabinetDevice[];
   copyLabel: string;
   onCopyMainLink: () => void;
-  onOpenTab: (tab: "subscription" | "devices" | "support") => void;
+  onOpenTab: (tab: Extract<CabinetTab, "subscription" | "devices" | "support">) => void;
 };
 
 const quickActions = [
@@ -125,8 +115,14 @@ export function CabinetOverviewPanel({
                 <span>Статус</span>
               </div>
 
+              {devices.length === 0 ? (
+                <div className={styles.deviceTableEmpty}>
+                  Подключенные устройства появятся после первого входа с клиента.
+                </div>
+              ) : null}
+
               {devices.map((device) => (
-                <div key={device.name} className={styles.deviceTableRow}>
+                <div key={device.id} className={styles.deviceTableRow}>
                   <div className={styles.deviceTableName}>
                     <span className={styles.deviceTablePlatformIcon} aria-hidden="true">
                       <DeviceIcon kind={device.icon} />

@@ -28,13 +28,19 @@
 }
 
 .workspace {
+  --cabinet-sidebar-width: 250px;
   display: grid;
-  grid-template-columns: minmax(78px, 250px) minmax(0, 1fr);
+  grid-template-columns: var(--cabinet-sidebar-width) minmax(0, 1fr);
   min-height: calc(100vh - var(--site-header-height, 72px));
   align-items: start;
 }
 
+.workspaceCompact {
+  --cabinet-sidebar-width: 78px;
+}
+
 .sidebar {
+  width: var(--cabinet-sidebar-width);
   position: sticky;
   top: var(--site-header-height, 72px);
   height: calc(100vh - var(--site-header-height, 72px));
@@ -174,7 +180,7 @@
   align-items: center;
   gap: 12px;
   padding: 0 12px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 15px;
   color: #9ca3af;
   background: transparent;
@@ -192,11 +198,14 @@
   color: #f8fafc;
   background: linear-gradient(135deg, rgba(87, 184, 255, 0.16), rgba(124, 92, 255, 0.18));
   border: 1px solid rgba(87, 184, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 24px rgba(87, 184, 255, 0.12);
 }
 
 .sidebarButtonIcon {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -204,8 +213,8 @@
 }
 
 .sidebarButtonIcon svg {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 .sidebarButtonCopy {
@@ -290,10 +299,10 @@
 
 .logoutButton {
   height: 44px;
-  border: 1px solid rgba(148, 163, 184, 0.13);
+  border: 1px solid rgba(251, 113, 133, 0.25);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.045);
-  color: #9ca3af;
+  background: rgba(251, 113, 133, 0.08);
+  color: #ffd0d7;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -327,7 +336,24 @@
   overflow: hidden;
 }
 
-.sidebarCompact .sidebarHead,
+.sidebarCompact {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.sidebarCompact .sidebarHead {
+  display: grid;
+  justify-items: center;
+  justify-content: center;
+  align-content: start;
+  gap: 0;
+  min-height: 40px;
+}
+
+.sidebarCompact .sidebarBrand {
+  display: none;
+}
+
 .sidebarCompact .sidebarButton,
 .sidebarCompact .userCard,
 .sidebarCompact .logoutButton {
@@ -336,11 +362,100 @@
   padding-right: 0;
 }
 
+.sidebarCompact .sidebarToggle {
+  margin: 0 auto;
+}
+
+.sidebarCompact .sidebarButton {
+  min-height: 52px;
+  gap: 0;
+  width: 100%;
+}
+
+.sidebarCompact .userCard {
+  width: 100%;
+  gap: 0;
+  min-height: 52px;
+  border-radius: 18px;
+}
+
+.sidebarCompact .sidebarButtonIcon {
+  width: 32px;
+  height: 32px;
+}
+
+.sidebarCompact .sidebarButtonIcon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.sidebarCompact .sidebarFooter {
+  gap: 8px;
+}
+
+.sidebarCompact .logoutButton {
+  min-height: 52px;
+  border-radius: 18px;
+}
+
+.sidebarCompact .sidebarButton,
+.sidebarCompact .userCard,
+.sidebarCompact .logoutButton {
+  position: relative;
+}
+
+.sidebarCompact .sidebarButton::after,
+.sidebarCompact .userCard::after,
+.sidebarCompact .logoutButton::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-6px);
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(7, 11, 21, 0.96);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.sidebarCompact .sidebarButton:hover::after,
+.sidebarCompact .userCard:hover::after,
+.sidebarCompact .logoutButton:hover::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.sidebarCompact .sidebarSectionLabel {
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.sidebarCompact .userCard,
+.sidebarCompact .logoutButton {
+  width: 100%;
+}
+
 .content {
   min-width: 0;
   padding: 0 0 0 20px;
   display: grid;
   gap: 16px;
+}
+
+.workspaceCompact .content {
+  padding-left: 16px;
 }
 
 .pageTop {
@@ -434,6 +549,43 @@
 
 .mobileMenuButton {
   display: none;
+}
+
+.mobileCabinetBar {
+  display: none;
+}
+
+.mobileCabinetTabs {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.mobileCabinetTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.mobileCabinetTab {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #f8fafc;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.mobileCabinetTabActive {
+  border-color: rgba(87, 184, 255, 0.35);
+  background: linear-gradient(135deg, rgba(87, 184, 255, 0.16), rgba(124, 92, 255, 0.18));
+  box-shadow: 0 12px 28px rgba(87, 184, 255, 0.14);
 }
 
 .dashboardGrid {
@@ -800,6 +952,12 @@
   border-bottom: 0;
 }
 
+.deviceTableEmpty {
+  padding: 18px 0 6px;
+  color: #64748b;
+  font-size: 13px;
+}
+
 .deviceTableName {
   display: flex;
   align-items: center;
@@ -925,6 +1083,23 @@
   padding-top: 14px;
   border-top: 1px solid rgba(148, 163, 184, 0.09);
   animation: fadeUp 0.25s ease both;
+}
+
+.emptyState {
+  display: grid;
+  gap: 8px;
+}
+
+.emptyState strong {
+  color: #f8fafc;
+  font-size: 15px;
+}
+
+.emptyState p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .deviceInfoGrid {
@@ -1276,70 +1451,34 @@
   }
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
   .workspace {
     grid-template-columns: 1fr;
   }
 
   .sidebar {
-    position: fixed;
-    top: var(--site-header-height, 72px);
-    left: 0;
-    bottom: 0;
-    z-index: 30;
-    width: min(250px, calc(100vw - 24px));
-    height: calc(100vh - var(--site-header-height, 72px));
-    transform: translateX(-100%);
-  }
-
-  .sidebarCompact {
-    width: min(250px, calc(100vw - 24px));
-  }
-
-  .sidebarCompact .sidebarBrandText,
-  .sidebarCompact .sidebarButtonCopy,
-  .sidebarCompact .userMeta,
-  .sidebarCompact .logoutLabel {
-    opacity: 1;
-    width: auto;
-  }
-
-  .sidebarCompact .sidebarHead,
-  .sidebarCompact .sidebarButton,
-  .sidebarCompact .userCard,
-  .sidebarCompact .logoutButton {
-    justify-content: initial;
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-
-  .sidebarMobileOpen {
-    transform: translateX(0);
-  }
-
-  .mobileOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
     display: block;
-    background: rgba(5, 7, 13, 0.7);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-  }
-
-  .mobileOverlayVisible {
-    opacity: 1;
-    pointer-events: auto;
+    width: 0;
+    min-width: 0;
+    height: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
   }
 
   .content {
     padding: 0;
   }
 
+  .mobileOverlay,
   .mobileMenuButton {
-    display: inline-flex;
-    align-items: center;
+    display: none;
+  }
+
+  .mobileCabinetBar {
+    display: grid;
+    gap: 12px;
+    margin-top: -2px;
   }
 }
 
@@ -1389,7 +1528,7 @@
   }
 
   .pageActions {
-    flex-wrap: wrap;
+    display: none;
   }
 
   .deviceTableHead {

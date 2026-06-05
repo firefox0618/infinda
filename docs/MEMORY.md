@@ -18,6 +18,14 @@
 - Для `личного кабинета` уже используется отдельный dashboard-layout с более узкой рабочей областью и сворачиваемым боковым меню.
 - Для `личного кабинета` уже зафиксирован единый UI-паттерн: sticky/collapsible sidebar, page-top actions, overlay-модалки для продления и профиля, accordion-список устройств и full-width support-view.
 - Для ошибок сайта теперь используется отдельный модуль `error-page` с отдельными маршрутами под `403 / 404 / 500 / 502 / 503 / 505`, а не одна demo-страница со switcher.
+- В backend начат первый доменный слой `auth`: отдельный модуль с `login/logout/me` на `Django + DRF` и token-based локальной авторизацией для стыковки с frontend `/auth`.
+- В backend уже добавлены модули `profile` и `devices` с реальными endpoint-ами `GET/PATCH /api/profile/me/`, `GET /api/devices/`, `POST /api/devices/<id>/revoke/`.
+- В backend уже добавлен модуль `subscription` с реальным endpoint-ом `GET /api/subscription/`; вкладка `Подписка` в кабинете больше не живет только на моках.
+- `apps/web` больше не использует demo-login на `/auth`: frontend auth-форма теперь ходит в собственные Next route handlers `/api/auth/login|me|logout`, а те проксируют запросы в локальный `Django + DRF` backend.
+- Токен и данные пользователя теперь сохраняются локально на стороне frontend: `localStorage` при `Запомнить меня` и `sessionStorage` без этой опции.
+- `apps/web` уже подключен к backend-модулям `profile/devices` внутри `cabinet`: профиль обновляется через API, список устройств и отзыв устройства больше не держатся только на моках.
+- Для локальной проверки уже создан пользователь `rudolfnaumow@gmail.com` и demo-данные кабинета: профиль `Rudolf Naumow`, `@rudolfnaumow`, три устройства (`MacBook Air`, `iPhone 15 Pro`, `Windows PC`) и demo-подписка `12 месяцев (безлимит)` с 4 маршрутами по странам.
+- `Django admin` переведен на русский интерфейс через `LANGUAGE_CODE=ru-ru`, русские названия моделей и настроенный `admin.site` header/title.
 
 Что уже решено:
 - Начинаем с этапа 1: каркас и планировка.
