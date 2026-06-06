@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 import { navigateToErrorPage } from "@/shared/navigation/error-page-navigation";
@@ -18,13 +19,15 @@ import { useCabinetSupportState } from "../hooks/use-cabinet-support-state";
 
 export function CabinetPage() {
   const router = useRouter();
+  const handleAuthRequired = useCallback(() => {
+    router.replace("/auth");
+  }, [router]);
+  const handleServerError = useCallback(() => {
+    navigateToErrorPage(router, "500");
+  }, [router]);
   const state = useCabinetPageState({
-    onAuthRequired: () => {
-      router.replace("/auth");
-    },
-    onServerError: () => {
-      navigateToErrorPage(router, "500");
-    },
+    onAuthRequired: handleAuthRequired,
+    onServerError: handleServerError,
   });
   const support = useCabinetSupportState();
 
