@@ -5,23 +5,27 @@ Backend-приложение проекта `INFINDA` на `Django + DRF`.
 ## Подготовка окружения
 
 ```bash
+cd apps/api
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
+python manage.py check
+python manage.py test
 python manage.py runserver
 ```
 
 Для локального запуска:
-- `apps/api` автоматически читает корневой файл `/home/rudolf/Projects/infinda/.env`;
+- `apps/api` автоматически читает корневой файл `/home/dextrmed/Project/infinda/.env`;
 - в нем должны быть только актуальные переменные `INFINDA`, включая `PLATEGA_*`.
+- проверенный локальный сценарий использует интерпретатор `apps/api/.venv/bin/python`.
 
 ## Команды
 
-- `python manage.py check`
-- `python manage.py migrate`
-- `python manage.py runserver`
-- `python manage.py test`
+- `./.venv/bin/python manage.py check`
+- `./.venv/bin/python manage.py migrate`
+- `./.venv/bin/python manage.py runserver`
+- `./.venv/bin/python manage.py test`
 
 ## Текущие API endpoints
 
@@ -35,6 +39,9 @@ python manage.py runserver
 - `GET /api/devices/`
 - `POST /api/devices/<id>/revoke/`
 - `GET /api/subscription/`
+- `GET /api/subscription/plans/`
+- `POST /api/subscription/checkout/`
+- `POST /api/subscription/webhooks/platega/<secret>/`
 
 ## Текущее состояние
 
@@ -53,6 +60,7 @@ python manage.py runserver
 - Login-экран админки теперь имеет собственный loader, switch темы, показ/скрытие пароля и более аккуратную клиентскую проверку перед отправкой формы.
 - Левый sidebar админки теперь расширен и переработан в раскрывающийся список приложений; его состояние скрытия сохраняется локально и применяется при следующем открытии панели.
 - Регистрация пользователя теперь работает через backend endpoint `POST /api/auth/register/`.
+- Backend-платежный контур `subscription/plans + subscription/checkout + platega webhook` реализован и проходит доменные API-тесты.
 
 ## Структура
 
@@ -62,7 +70,7 @@ python manage.py runserver
 ## Ограничения текущего этапа
 
 - `auth`, `profile`, `devices`, `subscription` уже работают локально.
-- `support` и реальное `продление / оплата` пока не подключены к backend.
+- Отдельного backend-домена `support` пока нет; support-сценарий на уровне кабинета остается UI-first.
 - Продакшн-настройки и внешние интеграции будут добавляться отдельными этапами.
 - Локальные demo-данные могут использоваться для ручной проверки, но конкретные учетные данные не фиксируются в документации проекта.
 - Общие TypeScript transport-контракты хранятся в `packages/shared`; backend пока выровнен с ними через serializer-формы и тесты, а не через прямой импорт.

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+import type { ApiErrorDto } from "@infinda/shared/contracts/errors";
+import { parseJsonResponse } from "@/shared/api/api-errors";
+
 const DEFAULT_BACKEND_API_BASE_URL = "http://localhost:8000/api/";
 
 function getBackendApiBaseUrl() {
@@ -22,7 +25,21 @@ async function parseBackendBody(response: Response) {
     return null;
   }
 
-  return JSON.parse(text);
+  return parseJsonResponse<unknown>(text);
+}
+
+function buildInvalidBackendResponse(status: number) {
+  const payload: ApiErrorDto = {
+    error: {
+      code: "UPSTREAM_INVALID_RESPONSE",
+      message: "Backend returned an invalid response.",
+      details: {
+        status,
+      },
+    },
+  };
+
+  return NextResponse.json(payload, { status: 502 });
 }
 
 export async function proxyBackendAuthRequest(options: {
@@ -53,5 +70,10 @@ export async function proxyBackendAuthRequest(options: {
   }
 
   const payload = await parseBackendBody(response);
+
+  if (payload === null && response.status !== 204) {
+    return buildInvalidBackendResponse(response.status);
+  }
+
   return NextResponse.json(payload, { status: response.status });
 }

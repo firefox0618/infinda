@@ -15,7 +15,11 @@ export function parseJsonResponse<T>(text: string) {
     return null as T | null;
   }
 
-  return JSON.parse(text) as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null as T | null;
+  }
 }
 
 function isWrappedApiError(payload: ApiErrorPayload): payload is ApiErrorDto {
