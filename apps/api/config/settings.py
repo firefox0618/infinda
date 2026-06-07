@@ -48,7 +48,13 @@ INSTALLED_APPS = [
     "apps.auth.apps.AuthConfig",
     "apps.profile.apps.ProfileConfig",
     "apps.devices.apps.DevicesConfig",
+    "apps.servers.apps.ServersConfig",
+    "apps.routing.apps.RoutingConfig",
+    "apps.access.apps.AccessConfig",
+    "apps.notifications.apps.NotificationsConfig",
     "apps.subscription.apps.SubscriptionConfig",
+    "apps.support.apps.SupportConfig",
+    "apps.telegram.apps.TelegramConfig",
     "apps.health.apps.HealthConfig",
 ]
 
@@ -111,6 +117,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
@@ -132,3 +140,12 @@ PLATEGA_BASE_URL = os.getenv("PLATEGA_BASE_URL", "https://api.platega.io")
 PLATEGA_WEBHOOK_SECRET = os.getenv("PLATEGA_WEBHOOK_SECRET", "")
 PLATEGA_RETURN_URL = os.getenv("PLATEGA_RETURN_URL", "http://localhost:3000/cabinet")
 PLATEGA_FAILED_URL = os.getenv("PLATEGA_FAILED_URL", "http://localhost:3000/prices")
+TELEGRAM_MAIN_BOT_USERNAME = os.getenv("TELEGRAM_MAIN_BOT_USERNAME", "infinda_bot")
+TELEGRAM_MAIN_BOT_TOKEN = os.getenv("TELEGRAM_MAIN_BOT_TOKEN", "")
+TELEGRAM_BOT_API_BASE_URL = os.getenv("TELEGRAM_BOT_API_BASE_URL", "https://api.telegram.org")
+TELEGRAM_BOT_POLL_TIMEOUT_SECONDS = int(os.getenv("TELEGRAM_BOT_POLL_TIMEOUT_SECONDS", "30"))
+TELEGRAM_BOT_REQUEST_TIMEOUT_SECONDS = float(
+    os.getenv("TELEGRAM_BOT_REQUEST_TIMEOUT_SECONDS", "35"),
+)
+TELEGRAM_BOT_RETRY_DELAY_SECONDS = int(os.getenv("TELEGRAM_BOT_RETRY_DELAY_SECONDS", "5"))
+TELEGRAM_SUPPORT_NOTIFICATIONS_CHAT_ID = os.getenv("TELEGRAM_SUPPORT_NOTIFICATIONS_CHAT_ID", "")

@@ -53,7 +53,7 @@ function buildFieldErrors(payload: ApiErrorPayload) {
     password: getErrorMessage(details.password),
   };
 
-  if (!fieldErrors.email && !fieldErrors.password) {
+  if (!fieldErrors.name && !fieldErrors.email && !fieldErrors.password) {
     return undefined;
   }
 

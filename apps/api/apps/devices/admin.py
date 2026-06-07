@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.contrib import admin, messages
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import Device
@@ -22,11 +25,33 @@ class RevocationStatusFilter(admin.SimpleListFilter):
         return queryset
 
 
+class DeviceAttentionFilter(admin.SimpleListFilter):
+    title = "Требует проверки"
+    parameter_name = "attention_state"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("needs_review", "Да"),
+            ("stale", "Давно не выходило на связь"),
+        )
+
+    def queryset(self, request, queryset):
+        stale_before = timezone.now() - timedelta(days=7)
+        if self.value() == "needs_review":
+            return queryset.filter(revoked_at__isnull=True).filter(
+                Q(status=Device.Status.STALE) | Q(last_seen__lte=stale_before)
+            )
+        if self.value() == "stale":
+            return queryset.filter(revoked_at__isnull=True, last_seen__lte=stale_before)
+        return queryset
+
+
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "name",
+        "display_name",
         "user",
         "lifecycle_state",
         "platform_name",
@@ -35,7 +60,14 @@ class DeviceAdmin(admin.ModelAdmin):
         "last_seen",
         "revoked_at",
     )
-    list_filter = ("status", "icon", "platform_name", "client_name", RevocationStatusFilter)
+    list_filter = (
+        "status",
+        "icon",
+        "platform_name",
+        "client_name",
+        RevocationStatusFilter,
+        DeviceAttentionFilter,
+    )
     search_fields = ("id", "name", "user__email", "user__username", "ip_address")
     autocomplete_fields = ("user",)
     readonly_fields = ("created_at", "updated_at", "revoked_at")
@@ -50,7 +82,17 @@ class DeviceAdmin(admin.ModelAdmin):
         (
             "Подключение",
             {
-                "fields": ("platform_name", "client_name", "ip_address", "last_seen", "revoked_at"),
+                "fields": (
+                    "display_name",
+                    "platform_name",
+                    "platform",
+                    "client_name",
+                    "client",
+                    "ip_address",
+                    "last_seen",
+                    "revoked_at",
+                    "revoked_reason",
+                ),
             },
         ),
         (

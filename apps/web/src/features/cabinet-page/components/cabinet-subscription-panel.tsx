@@ -1,6 +1,12 @@
 import styles from "./cabinet-page.module.css";
 
 import { CopyIcon } from "./cabinet-icons";
+import { CabinetPaymentHistory } from "./cabinet-payment-history";
+import { CabinetSubscriptionHistory } from "./cabinet-subscription-history";
+import type {
+  CabinetPaymentHistoryEntry,
+  CabinetSubscriptionHistoryEntry,
+} from "./cabinet-models";
 
 type CountryLink = {
   code: string;
@@ -15,10 +21,13 @@ type SubscriptionDetail = {
 
 type CabinetSubscriptionPanelProps = {
   subscription: {
-    status: "none" | "trial" | "active" | "expired";
+    status: "none" | "trial" | "active" | "expired" | "pending_payment";
     isTrial: boolean;
     mainLink: string | null;
     countries: readonly CountryLink[];
+    paymentHistory: readonly CabinetPaymentHistoryEntry[];
+    subscriptionHistory: readonly CabinetSubscriptionHistoryEntry[];
+    pendingPayment: CabinetPaymentHistoryEntry | null;
   };
   selectedCountryCode: string;
   selectedCountryUrl: string | null;
@@ -43,20 +52,32 @@ export function CabinetSubscriptionPanel({
   onCopyMainLink,
   onCopyCountryLink,
 }: CabinetSubscriptionPanelProps) {
-  if (subscription.status === "none") {
+  if (subscription.status === "none" || subscription.status === "pending_payment") {
     return (
       <div className={styles.subscriptionLayout}>
         <article className={styles.subscriptionPanel}>
           <div className={styles.panelHead}>
             <div>
               <div className={styles.panelTitle}>Подписка</div>
-              <div className={styles.panelSub}>Ссылки и маршруты появятся после оформления доступа</div>
+              <div className={styles.panelSub}>
+                {subscription.status === "pending_payment"
+                  ? "Оплата создана, ожидаем подтверждение провайдера"
+                  : "Ссылки и маршруты появятся после оформления доступа"}
+              </div>
             </div>
           </div>
           <div className={styles.panelBody}>
             <div className={styles.emptyState}>
-              <strong>У вас пока нет активной подписки</strong>
-              <p>Оформите подписку, чтобы получить основную ссылку, маршруты по странам и лимит устройств.</p>
+              <strong>
+                {subscription.status === "pending_payment"
+                  ? "Есть ожидающий платеж"
+                  : "У вас пока нет активной подписки"}
+              </strong>
+              <p>
+                {subscription.status === "pending_payment"
+                  ? "После подтверждения оплаты здесь появятся активная подписка, ссылки и маршруты."
+                  : "Оформите подписку, чтобы получить основную ссылку, маршруты по странам и лимит устройств."}
+              </p>
               <div>
                 <button
                   type="button"
@@ -69,6 +90,11 @@ export function CabinetSubscriptionPanel({
             </div>
           </div>
         </article>
+        <CabinetPaymentHistory
+          entries={subscription.paymentHistory}
+          pendingPayment={subscription.pendingPayment}
+        />
+        <CabinetSubscriptionHistory entries={subscription.subscriptionHistory} />
       </div>
     );
   }
@@ -214,6 +240,14 @@ export function CabinetSubscriptionPanel({
             </div>
           </div>
         </article>
+      </div>
+
+      <div className={styles.subscriptionBottomGrid}>
+        <CabinetPaymentHistory
+          entries={subscription.paymentHistory}
+          pendingPayment={subscription.pendingPayment}
+        />
+        <CabinetSubscriptionHistory entries={subscription.subscriptionHistory} />
       </div>
     </div>
   );

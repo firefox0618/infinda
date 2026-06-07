@@ -25,12 +25,12 @@ Frontend-приложение проекта `INFINDA` на `Next.js`.
 - Для мобильной навигации используется общий burger-menu паттерн.
 - Реальный backend уже подключен через Next route handlers в `src/app/api`.
 - Auth и часть cabinet-сценариев уже работают через локальный `Django + DRF` backend.
-- Transport DTO и endpoint-paths для `auth/profile/devices/subscription` подключены из `packages/shared`.
+- Cabinet уже использует backend-данные по устройствам и подписке: история оплат, история продлений, `pending_payment`, единый `access-state` и revoke-flow с причиной.
+- Transport DTO и endpoint-paths для `auth/profile/devices/subscription/support/telegram/access` подключены из `packages/shared`.
 
 ## Ограничения текущего этапа
 
 - Frontend зависит от локально поднятого backend `apps/api` и его BFF-прокси в `src/app/api`.
 - Backend-платежный контур уже реализован, но пользовательские post-payment сценарии и UX оплаты еще требуют дальнейшей доработки.
-- Часть системных маршрутов кабинета пока остается UI-first и требует дальнейшей backend-стыковки.
-- Support-раздел кабинета пока остается UI-first и не подключен к отдельному backend-домену.
+- Пользовательский inbox для notification-домена пока не вынесен в отдельную вкладку кабинета: backend-события уже есть, frontend-список уведомлений еще не сделан.
 - Frontend-тесты в приложении пока не развернуты.

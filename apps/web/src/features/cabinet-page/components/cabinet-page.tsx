@@ -29,7 +29,9 @@ export function CabinetPage() {
     onAuthRequired: handleAuthRequired,
     onServerError: handleServerError,
   });
-  const support = useCabinetSupportState();
+  const support = useCabinetSupportState({
+    onAuthRequired: handleAuthRequired,
+  });
 
   if (!state.isSessionResolved) {
     return (
@@ -98,6 +100,7 @@ export function CabinetPage() {
               <div className={styles.pageActions}>
                 <button
                   type="button"
+                  data-testid="cabinet-open-renew-button"
                   className={`${styles.topButton} ${styles.topButtonPrimary}`}
                   onClick={state.openRenewModal}
                 >
@@ -125,6 +128,7 @@ export function CabinetPage() {
 
             {state.activeTab === "overview" ? (
               <CabinetOverviewPanel
+                accessState={state.accessState}
                 stats={state.overviewStats}
                 subscription={state.subscription}
                 devices={state.devices}
@@ -164,29 +168,28 @@ export function CabinetPage() {
 
             {state.activeTab === "devices" ? (
               <CabinetDevicesPanel
+                actionMessage={state.deviceActionMessage}
+                actionState={state.deviceActionState}
                 devices={state.devices}
-                onRevokeDevice={(deviceId) => {
-                  void state.handleRevokeDevice(deviceId);
+                onRevokeDevice={(deviceId, reason) => {
+                  void state.handleRevokeDevice(deviceId, reason);
                 }}
               />
             ) : null}
 
             {state.activeTab === "support" ? (
               <CabinetSupportPanel
+                assignedAdminName={support.conversation?.assignedAdminName ?? null}
                 attachedFiles={support.attachedFiles}
+                errorMessage={support.errorMessage}
+                loadState={support.loadState}
                 message={support.messageDraft}
                 messages={support.messages}
+                sendState={support.sendState}
+                status={support.conversation?.status ?? null}
                 onChangeMessage={support.setMessageDraft}
-                onChangeFiles={(files) =>
-                  support.setAttachedFiles(
-                    files ? Array.from(files, (file) => file.name) : [],
-                  )
-                }
-                onRemoveFile={(fileName) =>
-                  support.setAttachedFiles((current) =>
-                    current.filter((name) => name !== fileName),
-                  )
-                }
+                onChangeFiles={support.handleChangeFiles}
+                onRemoveFile={support.handleRemoveFile}
                 onSendMessage={support.handleSendMessage}
               />
             ) : null}
@@ -210,11 +213,19 @@ export function CabinetPage() {
         profile={state.profile}
         saveState={state.profileSaveState}
         saveMessage={state.profileSaveMessage}
+        telegramLink={state.telegramLink}
+        telegramLinkActionMessage={state.telegramLinkActionMessage}
+        telegramLinkActionState={state.telegramLinkActionState}
+        telegramLinkDeepLinkUrl={state.telegramLinkDeepLinkUrl}
         onClose={state.closeProfileModal}
+        onCreateTelegramLink={state.handleCreateTelegramLink}
         onSave={() => {
           void state.handleSaveProfile();
         }}
         onChangeField={state.setProfileField}
+        onUnlinkTelegram={() => {
+          void state.handleUnlinkTelegram();
+        }}
       />
     </div>
   );

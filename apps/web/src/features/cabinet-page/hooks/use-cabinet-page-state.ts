@@ -15,6 +15,7 @@ import {
 } from "@/shared/auth/auth-storage";
 import type { AuthUser } from "@/shared/auth/auth-types";
 import {
+  fetchCabinetAccessState,
   fetchCabinetDevices,
   fetchCabinetProfile,
   fetchCabinetSubscription,
@@ -24,6 +25,7 @@ import {
 } from "../api/cabinet-client";
 import { cabinetOverviewStats } from "../data/cabinet-content";
 import type {
+  CabinetAccessState,
   CabinetDevice,
   CabinetOverviewStat,
   CabinetSubscription,
@@ -33,6 +35,7 @@ import { resolveCabinetSection } from "../constants/cabinet-tabs";
 import { useCabinetClipboardState } from "./use-cabinet-clipboard-state";
 import { useCabinetProfileState } from "./use-cabinet-profile-state";
 import { useCabinetSubscriptionActions } from "./use-cabinet-subscription-actions";
+import { useCabinetTelegramLinkState } from "./use-cabinet-telegram-link-state";
 
 type UseCabinetPageStateArgs = {
   onAuthRequired: () => void;
@@ -54,6 +57,9 @@ export function useCabinetPageState({
   const [selectedCountry, setSelectedCountry] = useState("");
   const [devices, setDevices] = useState<CabinetDevice[]>([]);
   const [subscription, setSubscription] = useState<CabinetSubscription | null>(null);
+  const [accessState, setAccessState] = useState<CabinetAccessState | null>(null);
+  const [deviceActionMessage, setDeviceActionMessage] = useState("");
+  const [deviceActionState, setDeviceActionState] = useState<"idle" | "success" | "error">("idle");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(getInitialStoredUser());
   const [isSessionResolved, setIsSessionResolved] = useState(false);
   const [subscriptionPlans, setSubscriptionPlans] = useState<CabinetSubscriptionPlan[]>([]);
@@ -81,6 +87,16 @@ export function useCabinetPageState({
     handleSubscriptionCheckout,
     openRenewModal,
   } = useCabinetSubscriptionActions(onAuthRequired);
+  const {
+    deepLinkUrl,
+    linkActionMessage,
+    linkActionState,
+    telegramLink,
+    handleCreateLink,
+    handleUnlink,
+  } = useCabinetTelegramLinkState({
+    onAuthRequired,
+  });
 
   const currentSection = useMemo(
     () => resolveCabinetSection(activeTab),
@@ -90,11 +106,26 @@ export function useCabinetPageState({
   const subscriptionDetails = useMemo(
     () =>
       subscription && subscription.status !== "none"
+        && subscription.status !== "pending_payment"
         ? [
             { label: "Тариф", value: subscription.planName ?? "Не оформлена" },
             { label: "Активна до", value: subscription.activeUntil ?? "Нет даты" },
             { label: "Осталось дней", value: String(subscription.remainingDays) },
-            { label: "Устройств", value: `${devices.length} из ${subscription.maxDevices ?? 0}` },
+            {
+              label: "Устройств",
+              value: `${devices.filter((device) => device.computedStatus === "active").length} из ${subscription.maxDevices ?? 0}`,
+            },
+            {
+              label: "Состояние",
+              value:
+                subscription.status === "trial"
+                  ? "Триал"
+                  : subscription.status === "active"
+                    ? "Активна"
+                    : subscription.status === "expired"
+                      ? "Истекла"
+                      : "Ожидает оплаты",
+            },
           ]
         : [],
     [devices, subscription],
@@ -106,8 +137,8 @@ export function useCabinetPageState({
   );
 
   const overviewStats = useMemo<readonly CabinetOverviewStat[]>(() => {
-    const onlineDevicesCount = devices.filter(
-      (device) => device.status === "online",
+    const activeDevicesCount = devices.filter(
+      (device) => device.computedStatus === "active",
     ).length;
 
     return cabinetOverviewStats.map((stat) => {
@@ -122,6 +153,8 @@ export function useCabinetPageState({
                 ? "подписка активна"
                 : subscription?.status === "expired"
                   ? "доступ закончился"
+                  : subscription?.status === "pending_payment"
+                    ? "ожидается оплата"
                   : "подписка не оформлена",
         };
       }
@@ -129,8 +162,8 @@ export function useCabinetPageState({
       if (stat.title === "Активные устройства") {
         return {
           ...stat,
-          value: String(onlineDevicesCount),
-          note: subscription && subscription.status !== "none"
+          value: String(activeDevicesCount),
+          note: subscription && subscription.status !== "none" && subscription.status !== "pending_payment"
             ? `${devices.length} из ${subscription.maxDevices ?? 0} доступных`
             : `${devices.length} устройств в кабинете`,
         };
@@ -155,10 +188,18 @@ export function useCabinetPageState({
       fetchCurrentUser(token),
       fetchCabinetProfile(token),
       fetchCabinetDevices(token),
+      fetchCabinetAccessState(token),
       fetchCabinetSubscription(token),
       fetchCabinetSubscriptionPlans(token),
     ])
-      .then(([user, fetchedProfile, fetchedDevices, fetchedSubscription, fetchedPlans]) => {
+      .then(([
+        user,
+        fetchedProfile,
+        fetchedDevices,
+        fetchedAccessState,
+        fetchedSubscription,
+        fetchedPlans,
+      ]) => {
         if (isCancelled) {
           return;
         }
@@ -166,6 +207,7 @@ export function useCabinetPageState({
         setCurrentUser(user);
         replaceStoredAuthUser(user);
         setDevices(fetchedDevices);
+        setAccessState(fetchedAccessState);
         setSubscription(fetchedSubscription);
         setSubscriptionPlans(fetchedPlans);
         setSelectedCountry(fetchedSubscription?.countries[0]?.code ?? "");
@@ -214,7 +256,7 @@ export function useCabinetPageState({
   }, [onAuthRequired]);
 
   const handleRevokeDevice = useCallback(
-    async (deviceId: number) => {
+    async (deviceId: number, reason?: string) => {
       const token = readAuthToken();
 
       if (!token) {
@@ -224,13 +266,20 @@ export function useCabinetPageState({
       }
 
       try {
-        await revokeCabinetDevice(token, deviceId);
-        setDevices((current) => current.filter((device) => device.id !== deviceId));
+        const revokedDevice = await revokeCabinetDevice(token, deviceId, reason);
+        setDevices((current) =>
+          current.map((device) =>
+            device.id === deviceId ? revokedDevice : device,
+          ),
+        );
+        setDeviceActionState("success");
+        setDeviceActionMessage(`Устройство «${revokedDevice.displayName}» отозвано.`);
       } catch {
-        onServerError();
+        setDeviceActionState("error");
+        setDeviceActionMessage("Не удалось отозвать устройство.");
       }
     },
-    [onAuthRequired, onServerError],
+    [onAuthRequired],
   );
 
   const closeProfileModal = useCallback(() => {
@@ -242,6 +291,9 @@ export function useCabinetPageState({
     activeTab,
     currentSection,
     currentUser,
+    accessState,
+    deviceActionMessage,
+    deviceActionState,
     devices,
     isMobileSidebarOpen,
     isProfileModalOpen,
@@ -261,12 +313,18 @@ export function useCabinetPageState({
     subscriptionActionState,
     subscriptionDetails,
     subscriptionPlans,
+    telegramLink,
+    telegramLinkActionMessage: linkActionMessage,
+    telegramLinkActionState: linkActionState,
+    telegramLinkDeepLinkUrl: deepLinkUrl,
     closeProfileModal,
     closeRenewModal,
+    handleCreateTelegramLink: handleCreateLink,
     handleLogout,
     handleRevokeDevice,
     handleSaveProfile,
     handleSubscriptionCheckout,
+    handleUnlinkTelegram: handleUnlink,
     openRenewModal,
     setActiveTab,
     setIsMobileSidebarOpen,

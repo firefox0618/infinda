@@ -28,7 +28,7 @@ class CurrentSubscriptionView(APIView):
     def get(self, request):
         subscription = get_user_subscription(user=request.user)
         return Response(
-            serialize_subscription(subscription=subscription),
+            serialize_subscription(subscription=subscription, user=request.user),
             status=status.HTTP_200_OK,
         )
 

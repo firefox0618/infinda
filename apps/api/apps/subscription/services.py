@@ -5,7 +5,15 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ValidationError
 
-from .models import Subscription, SubscriptionPayment, SubscriptionRoute
+from apps.notifications.services import dispatch_notification
+from apps.routing.services import ensure_default_route_catalog, get_connection_route_by_code
+
+from .models import (
+    Subscription,
+    SubscriptionHistoryEvent,
+    SubscriptionPayment,
+    SubscriptionRoute,
+)
 from .platega import PlategaClient, PlategaError
 
 
@@ -16,6 +24,7 @@ SUBSCRIPTION_STATUS_NONE = "none"
 SUBSCRIPTION_STATUS_TRIAL = "trial"
 SUBSCRIPTION_STATUS_ACTIVE = "active"
 SUBSCRIPTION_STATUS_EXPIRED = "expired"
+SUBSCRIPTION_STATUS_PENDING_PAYMENT = "pending_payment"
 TRIAL_ROUTE_DEFINITIONS = (
     ("nl", "Нидерланды"),
     ("de", "Германия"),
@@ -87,8 +96,22 @@ def is_trial_subscription(*, subscription: Subscription) -> bool:
     return subscription.plan_name == TRIAL_PLAN_NAME
 
 
-def get_subscription_status(*, subscription: Subscription | None) -> str:
+def get_subscription_status(*, subscription: Subscription | None, user=None) -> str:
+    resolved_user = user or (subscription.user if subscription is not None else None)
+    if subscription is not None and resolved_user is not None and has_pending_subscription_payment(user=resolved_user):
+        base_status = (
+            SUBSCRIPTION_STATUS_EXPIRED
+            if subscription.ends_at < timezone.localdate()
+            else SUBSCRIPTION_STATUS_TRIAL
+            if is_trial_subscription(subscription=subscription)
+            else SUBSCRIPTION_STATUS_ACTIVE
+        )
+        if base_status in (SUBSCRIPTION_STATUS_EXPIRED,):
+            return SUBSCRIPTION_STATUS_PENDING_PAYMENT
+
     if subscription is None:
+        if resolved_user is not None and has_pending_subscription_payment(user=resolved_user):
+            return SUBSCRIPTION_STATUS_PENDING_PAYMENT
         return SUBSCRIPTION_STATUS_NONE
 
     if subscription.ends_at < timezone.localdate():
@@ -126,19 +149,37 @@ def get_open_subscription_payment(*, user, plan_code: str) -> SubscriptionPaymen
     )
 
 
+def get_latest_pending_subscription_payment(*, user) -> SubscriptionPayment | None:
+    return (
+        SubscriptionPayment.objects.filter(
+            user=user,
+            status=SubscriptionPayment.STATUS_PENDING,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+
+
+def has_pending_subscription_payment(*, user) -> bool:
+    return get_latest_pending_subscription_payment(user=user) is not None
+
+
 def build_subscription_main_url(*, user, plan_code: str) -> str:
     return f"https://infinda.com/sub/{plan_code}-{user.pk}"
 
 
 def ensure_subscription_routes(*, subscription: Subscription, plan_code: str) -> None:
+    ensure_default_route_catalog()
     existing_routes = {
         route.code: route for route in subscription.routes.all()
     }
 
     for index, (code, label) in enumerate(SUBSCRIPTION_ROUTE_DEFINITIONS, start=1):
+        connection_route = get_connection_route_by_code(code=code)
         defaults = {
-            "label": label,
-            "url": f"https://infinda.com/sub/{plan_code}-{subscription.user_id}/{code}",
+            "label": connection_route.location.name or label,
+            "url": connection_route.endpoint_url,
+            "connection_route": connection_route,
             "position": index,
         }
         route = existing_routes.get(code)
@@ -152,8 +193,9 @@ def ensure_subscription_routes(*, subscription: Subscription, plan_code: str) ->
 
         route.label = defaults["label"]
         route.url = defaults["url"]
+        route.connection_route = defaults["connection_route"]
         route.position = defaults["position"]
-        route.save(update_fields=["label", "url", "position", "updated_at"])
+        route.save(update_fields=["label", "url", "connection_route", "position", "updated_at"])
 
     subscription.routes.exclude(
         code__in=[code for code, _label in SUBSCRIPTION_ROUTE_DEFINITIONS]
@@ -161,6 +203,7 @@ def ensure_subscription_routes(*, subscription: Subscription, plan_code: str) ->
 
 
 def create_trial_subscription(*, user):
+    ensure_default_route_catalog()
     subscription, created = Subscription.objects.get_or_create(
         user=user,
         defaults={
@@ -178,12 +221,22 @@ def create_trial_subscription(*, user):
                 SubscriptionRoute(
                     subscription=subscription,
                     code=code,
-                    label=label,
-                    url=f"https://infinda.com/sub/trial-{user.pk}/{code}",
+                    label=get_connection_route_by_code(code=code).location.name or label,
+                    url=get_connection_route_by_code(code=code).endpoint_url,
+                    connection_route=get_connection_route_by_code(code=code),
                     position=index,
                 )
                 for index, (code, label) in enumerate(TRIAL_ROUTE_DEFINITIONS, start=1)
             ]
+        )
+        create_subscription_history_event(
+            user=user,
+            subscription=subscription,
+            event_type=SubscriptionHistoryEvent.EVENT_TRIAL_STARTED,
+            plan_code="trial",
+            plan_name=subscription.plan_name,
+            starts_at=subscription.starts_at,
+            ends_at=subscription.ends_at,
         )
 
     return subscription
@@ -194,6 +247,7 @@ def activate_subscription_plan(*, user, plan_code: str) -> Subscription:
     subscription = get_user_subscription(user=user)
     today = timezone.localdate()
 
+    previous_ends_at = subscription.ends_at if subscription is not None else None
     if subscription is None:
         subscription = Subscription.objects.create(
             user=user,
@@ -226,6 +280,29 @@ def activate_subscription_plan(*, user, plan_code: str) -> Subscription:
     return subscription
 
 
+def create_subscription_history_event(
+    *,
+    user,
+    subscription: Subscription,
+    event_type: str,
+    plan_code: str,
+    plan_name: str,
+    starts_at,
+    ends_at,
+    payment: SubscriptionPayment | None = None,
+) -> SubscriptionHistoryEvent:
+    return SubscriptionHistoryEvent.objects.create(
+        user=user,
+        subscription=subscription,
+        payment=payment,
+        event_type=event_type,
+        plan_code=plan_code,
+        plan_name=plan_name,
+        starts_at=starts_at,
+        ends_at=ends_at,
+    )
+
+
 @transaction.atomic
 def extend_subscription_by_days(*, subscription: Subscription, days: int) -> Subscription:
     if days <= 0:
@@ -249,7 +326,7 @@ def mark_subscription_payment_paid(*, payment: SubscriptionPayment) -> Subscript
         payment.status = SubscriptionPayment.STATUS_PAID
         payment.provider_status = PlategaClient.STATUS_CONFIRMED
         payment.paid_at = timezone.now()
-        activate_subscription_plan(user=payment.user, plan_code=payment.plan_code)
+        subscription = activate_subscription_plan(user=payment.user, plan_code=payment.plan_code)
         payment.save(
             update_fields=[
                 "status",
@@ -257,6 +334,34 @@ def mark_subscription_payment_paid(*, payment: SubscriptionPayment) -> Subscript
                 "paid_at",
                 "updated_at",
             ]
+        )
+        create_subscription_history_event(
+            user=payment.user,
+            subscription=subscription,
+            payment=payment,
+            event_type=(
+                SubscriptionHistoryEvent.EVENT_RENEWED
+                if SubscriptionHistoryEvent.objects.filter(
+                    user=payment.user,
+                    payment__isnull=False,
+                ).exclude(payment=payment).exists()
+                else SubscriptionHistoryEvent.EVENT_ACTIVATED
+            ),
+            plan_code=payment.plan_code,
+            plan_name=payment.plan_name,
+            starts_at=subscription.starts_at,
+            ends_at=subscription.ends_at,
+        )
+        dispatch_notification(
+            event_type="payment_paid",
+            user=payment.user,
+            payload={
+                "payment_id": payment.id,
+                "plan_name": payment.plan_name,
+                "amount_rub": payment.amount_rub,
+                "paid_at": payment.paid_at.isoformat() if payment.paid_at else None,
+                "active_until": subscription.ends_at.isoformat(),
+            },
         )
 
     return payment
@@ -274,6 +379,14 @@ def mark_subscription_payment_failed(*, payment: SubscriptionPayment) -> Subscri
     payment.status = SubscriptionPayment.STATUS_FAILED
     payment.save(update_fields=["status", "updated_at"])
     return payment
+
+
+def list_subscription_history(*, user):
+    return SubscriptionHistoryEvent.objects.filter(user=user).order_by("-created_at", "-id")
+
+
+def list_subscription_payments(*, user):
+    return SubscriptionPayment.objects.filter(user=user).order_by("-created_at", "-id")
 
 
 def _build_payment_payload(*, payment: SubscriptionPayment) -> dict:

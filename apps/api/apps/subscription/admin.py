@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib import admin, messages
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncMonth
@@ -16,14 +18,36 @@ from .services import (
 class SubscriptionRouteInline(admin.TabularInline):
     model = SubscriptionRoute
     extra = 0
-    fields = ("position", "code", "label", "url")
+    fields = ("position", "code", "label", "url", "connection_route")
     ordering = ("position", "id")
+
+
+class SubscriptionTimelineFilter(admin.SimpleListFilter):
+    title = "Срок"
+    parameter_name = "timeline"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("ending_soon", "Истекают за 7 дней"),
+            ("expired", "Истекли"),
+            ("active", "Активные"),
+        )
+
+    def queryset(self, request, queryset):
+        today = timezone.localdate()
+        if self.value() == "ending_soon":
+            return queryset.filter(ends_at__gte=today, ends_at__lte=today + timedelta(days=7))
+        if self.value() == "expired":
+            return queryset.filter(ends_at__lt=today)
+        if self.value() == "active":
+            return queryset.filter(ends_at__gte=today)
+        return queryset
 
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
     list_display = ("user", "plan_name", "starts_at", "ends_at", "remaining_days", "max_devices")
-    list_filter = ("plan_name", "ends_at", "max_devices")
+    list_filter = ("plan_name", SubscriptionTimelineFilter, "ends_at", "max_devices")
     search_fields = ("user__email", "user__username", "plan_name")
     autocomplete_fields = ("user",)
     inlines = [SubscriptionRouteInline]
@@ -100,7 +124,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
 
 @admin.register(SubscriptionRoute)
 class SubscriptionRouteAdmin(admin.ModelAdmin):
-    list_display = ("subscription", "position", "label", "code")
+    list_display = ("subscription", "position", "label", "code", "connection_route")
     list_filter = ("code",)
     search_fields = ("subscription__user__email", "label", "code")
     autocomplete_fields = ("subscription",)

@@ -1,3 +1,8 @@
+"use client";
+
+import { useState } from "react";
+
+import type { CabinetTelegramLink } from "./cabinet-models";
 import styles from "./cabinet-page.module.css";
 
 type CabinetProfileModalProps = {
@@ -12,8 +17,14 @@ type CabinetProfileModalProps = {
   };
   saveState: "idle" | "loading" | "success" | "error";
   saveMessage: string;
+  telegramLink: CabinetTelegramLink | null;
+  telegramLinkActionState: "idle" | "loading" | "success" | "error";
+  telegramLinkActionMessage: string;
+  telegramLinkDeepLinkUrl: string | null;
   onClose: () => void;
   onSave: () => void;
+  onCreateTelegramLink: () => void;
+  onUnlinkTelegram: () => void;
   onChangeField: (
     field:
       | "email"
@@ -26,15 +37,59 @@ type CabinetProfileModalProps = {
   ) => void;
 };
 
+function resolveLinkedTelegramLabel(telegramLink: CabinetTelegramLink | null) {
+  if (!telegramLink?.isLinked) {
+    return "Telegram не привязан";
+  }
+
+  if (telegramLink.telegramUsername) {
+    return `@${telegramLink.telegramUsername.replace(/^@/, "")}`;
+  }
+
+  if (telegramLink.telegramFullName) {
+    return telegramLink.telegramFullName;
+  }
+
+  return `ID ${telegramLink.telegramUserId}`;
+}
+
+function resolveLinkedTelegramMeta(telegramLink: CabinetTelegramLink | null) {
+  if (!telegramLink?.isLinked) {
+    return "Аккаунт Telegram пока не подключен.";
+  }
+
+  const identityParts = [];
+  if (telegramLink.telegramUsername) {
+    identityParts.push(`@${telegramLink.telegramUsername.replace(/^@/, "")}`);
+  }
+  if (telegramLink.telegramUserId) {
+    identityParts.push(`ID ${telegramLink.telegramUserId}`);
+  }
+
+  if (identityParts.length > 0) {
+    return identityParts.join(" · ");
+  }
+
+  return "Telegram успешно привязан.";
+}
+
 export function CabinetProfileModal({
   isOpen,
   profile,
   saveState,
   saveMessage,
+  telegramLink,
+  telegramLinkActionState,
+  telegramLinkActionMessage,
+  telegramLinkDeepLinkUrl,
   onClose,
   onSave,
+  onCreateTelegramLink,
+  onUnlinkTelegram,
   onChangeField,
 }: CabinetProfileModalProps) {
+  const [copyLabel, setCopyLabel] = useState("Скопировать ссылку");
+
   if (!isOpen) {
     return null;
   }
@@ -102,18 +157,6 @@ export function CabinetProfileModal({
           </label>
 
           <label className={styles.settingsField}>
-            <span>Telegram</span>
-            <input
-              className={styles.settingsInput}
-              type="text"
-              value={profile.telegramHandle}
-              onChange={(event) =>
-                onChangeField("telegramHandle", event.target.value)
-              }
-            />
-          </label>
-
-          <label className={styles.settingsField}>
             <span>Текущий пароль</span>
             <input
               className={styles.settingsInput}
@@ -136,6 +179,87 @@ export function CabinetProfileModal({
               placeholder="Введите новый пароль"
             />
           </label>
+        </div>
+
+        <div className={styles.noticeCard}>
+          <strong>Привязка Telegram</strong>
+          <div className={styles.telegramStatusCard}>
+            <div className={styles.telegramStatusHeader}>
+              <div>
+                <div className={styles.telegramIdentity}>
+                  {resolveLinkedTelegramLabel(telegramLink)}
+                </div>
+                <div className={styles.telegramMeta}>
+                  {resolveLinkedTelegramMeta(telegramLink)}
+                </div>
+              </div>
+              <span
+                className={`${styles.telegramStatusBadge} ${
+                  telegramLink?.isLinked
+                    ? styles.telegramStatusBadgeLinked
+                    : styles.telegramStatusBadgePending
+                }`}
+              >
+                {telegramLink?.isLinked ? "✓ Привязано" : "Не привязан"}
+              </span>
+            </div>
+            {telegramLink?.linkedAt ? (
+              <p>Подключено: {telegramLink.linkedAt}</p>
+            ) : null}
+          </div>
+          {telegramLink?.pendingLinkExpiresAt ? (
+            <p>Активная ссылка привязки действует до {telegramLink.pendingLinkExpiresAt}.</p>
+          ) : null}
+          {telegramLinkActionMessage ? (
+            <p>{telegramLinkActionMessage}</p>
+          ) : null}
+
+          <div className={styles.telegramLinkActions}>
+            {!telegramLink?.isLinked ? (
+              <button
+                type="button"
+                data-testid="telegram-create-link-button"
+                className={styles.primaryButton}
+                disabled={telegramLinkActionState === "loading"}
+                onClick={onCreateTelegramLink}
+              >
+                {telegramLinkActionState === "loading" ? "Открываем Telegram…" : "Привязать Telegram"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                disabled={telegramLinkActionState === "loading"}
+                onClick={onUnlinkTelegram}
+              >
+                {telegramLinkActionState === "loading" ? "Обновляем…" : "Отвязать Telegram"}
+              </button>
+            )}
+
+            {telegramLinkDeepLinkUrl ? (
+              <>
+                <a
+                  className={styles.secondaryButton}
+                  href={telegramLinkDeepLinkUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Открыть бота еще раз
+                </a>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(telegramLinkDeepLinkUrl);
+                    setCopyLabel("Скопировано");
+                    window.setTimeout(() => setCopyLabel("Скопировать ссылку"), 1400);
+                  }}
+                >
+                  {copyLabel}
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
 
         <div

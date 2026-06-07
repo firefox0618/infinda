@@ -904,6 +904,7 @@
 }
 
 .noticeCard {
+  margin-top: 18px;
   border: 1px solid rgba(87, 184, 255, 0.2);
   border-radius: 16px;
   padding: 14px;
@@ -924,6 +925,64 @@
 
 .noticeCard p {
   margin: 0;
+}
+
+.telegramLinkActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.telegramStatusCard {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.telegramStatusHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.telegramIdentity {
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.telegramMeta {
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.telegramStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.telegramStatusBadgeLinked {
+  color: #14532d;
+  background: #dcfce7;
+}
+
+.telegramStatusBadgePending {
+  color: #9f1239;
+  background: #ffe4e6;
 }
 
 .subscriptionLayout {
@@ -1100,6 +1159,37 @@
   gap: 12px;
 }
 
+.deviceSectionStack {
+  display: grid;
+  gap: 18px;
+}
+
+.deviceGroup {
+  display: grid;
+  gap: 12px;
+}
+
+.deviceGroupTitle {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(219, 229, 255, 0.62);
+}
+
+.deviceActionBanner {
+  border: 1px solid rgba(95, 255, 160, 0.28);
+  background: rgba(95, 255, 160, 0.08);
+  color: #dfffe9;
+  border-radius: 18px;
+  padding: 14px 18px;
+}
+
+.deviceActionBannerError {
+  border-color: rgba(255, 109, 109, 0.34);
+  background: rgba(255, 109, 109, 0.08);
+  color: #ffe3e3;
+}
+
 .deviceListItem {
   padding: 18px;
 }
@@ -1158,6 +1248,34 @@
   animation: fadeUp 0.25s ease both;
 }
 
+.revokeForm {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.revokeReasonLabel {
+  display: grid;
+  gap: 8px;
+  color: rgba(219, 229, 255, 0.82);
+  font-size: 13px;
+}
+
+.revokeReasonInput {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f7f8ff;
+  padding: 12px 14px;
+}
+
+.revokedMeta {
+  color: rgba(219, 229, 255, 0.72);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
 .emptyState {
   display: grid;
   gap: 8px;
@@ -1197,6 +1315,42 @@
 .infoTile strong {
   color: #f8fafc;
   font-size: 13px;
+}
+
+.historyList {
+  display: grid;
+  gap: 12px;
+}
+
+.historyRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.historyRow strong,
+.historyRow span {
+  display: block;
+}
+
+.historyRow span {
+  color: rgba(219, 229, 255, 0.62);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.pendingPaymentCard {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 196, 90, 0.24);
+  background: rgba(255, 196, 90, 0.08);
 }
 
 .supportPanel {
@@ -1259,6 +1413,12 @@
   color: #8fd6ff;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.messageMeta {
+  margin-top: 0.5rem;
+  color: rgba(226, 232, 240, 0.62);
+  font-size: 0.72rem;
 }
 
 .messageAttachments {

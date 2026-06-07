@@ -1,5 +1,6 @@
 import styles from "./cabinet-page.module.css";
 import type {
+  CabinetAccessState,
   CabinetDevice,
   CabinetOverviewStat,
   CabinetTab,
@@ -15,10 +16,11 @@ import {
 type CabinetOverviewPanelProps = {
   stats: readonly CabinetOverviewStat[];
   subscription: {
-    status: "none" | "trial" | "active" | "expired";
+    status: "none" | "trial" | "active" | "expired" | "pending_payment";
     isTrial: boolean;
     mainLink: string | null;
   } | null;
+  accessState: CabinetAccessState | null;
   devices: readonly CabinetDevice[];
   copyLabel: string;
   onCopyMainLink: () => void;
@@ -47,12 +49,26 @@ const quickActions = [
 export function CabinetOverviewPanel({
   stats,
   subscription,
+  accessState,
   devices,
   copyLabel,
   onCopyMainLink,
   onOpenRenew,
   onOpenTab,
 }: CabinetOverviewPanelProps) {
+  const accessStateLabel =
+    accessState?.status === "active"
+      ? "active"
+      : accessState?.status === "expired"
+        ? "expired"
+        : accessState?.status === "pending_payment"
+          ? "pending"
+          : accessState?.status === "device_limit_exceeded"
+            ? "device limit"
+            : accessState?.status === "server_unavailable"
+              ? "server unavailable"
+              : "restricted";
+
   const subscriptionTitle =
     subscription?.status === "expired"
       ? subscription.isTrial
@@ -60,6 +76,8 @@ export function CabinetOverviewPanel({
         : "Подписка закончилась"
       : subscription?.status === "none"
         ? "У вас пока нет активной подписки"
+        : subscription?.status === "pending_payment"
+          ? "Ожидаем подтверждение оплаты"
         : "Основная подписка";
 
   const subscriptionNote =
@@ -67,6 +85,8 @@ export function CabinetOverviewPanel({
       ? "Оформите новый доступ, чтобы снова подключать устройства и маршруты."
       : subscription?.status === "none"
         ? "Оформите подписку, чтобы получить ссылку подключения и маршруты."
+        : subscription?.status === "pending_payment"
+          ? "После подтверждения оплаты появятся рабочая ссылка и маршруты."
         : "Ссылка для подключения устройств";
 
   return (
@@ -98,7 +118,10 @@ export function CabinetOverviewPanel({
           </div>
 
           <div className={styles.panelBody}>
-            {subscription && subscription.mainLink && subscription.status !== "expired" ? (
+            {subscription &&
+            subscription.mainLink &&
+            subscription.status !== "expired" &&
+            subscription.status !== "pending_payment" ? (
               <div className={styles.subscriptionRow}>
                 <div className={styles.subscriptionLink}>{subscription.mainLink}</div>
                 <button
@@ -166,7 +189,7 @@ export function CabinetOverviewPanel({
                       <DeviceIcon kind={device.icon} />
                     </span>
                     <div>
-                      <strong>{device.name}</strong>
+                      <strong>{device.displayName}</strong>
                       <span>{device.meta}</span>
                     </div>
                   </div>
@@ -175,12 +198,12 @@ export function CabinetOverviewPanel({
                   <span>{device.lastSeen}</span>
                   <span
                     className={`${styles.tableStatus} ${
-                      device.status === "online"
+                      device.computedStatus === "active"
                         ? styles.tableStatusOnline
                         : styles.tableStatusOffline
                     }`}
                   >
-                    {device.status}
+                    {device.isCurrent ? "current" : device.computedStatus}
                   </span>
                 </div>
               ))}
@@ -243,25 +266,22 @@ export function CabinetOverviewPanel({
                 <span>Подписка</span>
                 <strong
                   className={`${styles.statusValue} ${
-                    subscription?.status === "trial" || subscription?.status === "active"
+                    accessState?.status === "active"
                       ? styles.statusValueActive
-                      : subscription?.status === "expired"
+                      : accessState?.status === "expired" ||
+                          accessState?.status === "pending_payment" ||
+                          accessState?.status === "device_limit_exceeded" ||
+                          accessState?.status === "server_unavailable"
                         ? styles.statusValueWarning
                         : styles.statusValueMuted
                   }`}
                 >
-                  {subscription?.status === "trial"
-                    ? "trial"
-                    : subscription?.status === "active"
-                      ? "active"
-                      : subscription?.status === "expired"
-                        ? "expired"
-                        : "none"}
+                  {accessStateLabel}
                 </strong>
               </div>
               <div className={styles.statusRow}>
                 <span>Маршрутизация</span>
-                <strong>auto</strong>
+                <strong>{accessState ? accessState.availableRouteCount : 0}</strong>
               </div>
               <div className={styles.statusRow}>
                 <span>Личный кабинет</span>
@@ -271,21 +291,37 @@ export function CabinetOverviewPanel({
                 <span>Поддержка</span>
                 <strong>online</strong>
               </div>
+              <div className={styles.statusRow}>
+                <span>Устройства</span>
+                <strong>
+                  {accessState
+                    ? `${accessState.activeDeviceCount}/${accessState.allowedDeviceCount}`
+                    : devices.length}
+                </strong>
+              </div>
             </div>
           </div>
         </article>
 
         <article className={styles.noticeCard}>
           <strong>
-            {subscription?.status === "expired" || subscription?.status === "none"
+            {accessState?.status === "expired" ||
+            accessState?.status === "restricted" ||
+            accessState?.status === "pending_payment"
               ? "Доступ пока не активирован"
               : "Маршруты работают автоматически"}
           </strong>
           <p>
-            {subscription?.status === "expired"
+            {accessState?.status === "expired"
               ? "Текущий доступ завершился. Оформите новую подписку, чтобы снова использовать защищенные маршруты."
-              : subscription?.status === "none"
+              : accessState?.status === "pending_payment"
+                ? "Ожидаем подтверждение оплаты. После этого доступ и маршруты активируются автоматически."
+                : accessState?.status === "restricted"
                 ? "После оформления подписки здесь появятся рабочая ссылка, маршруты и доступные лимиты устройств."
+                : accessState?.status === "device_limit_exceeded"
+                  ? "Количество устройств превысило лимит подписки. Отзовите лишние подключения, чтобы восстановить доступ."
+                  : accessState?.status === "server_unavailable"
+                    ? "Назначенные серверы сейчас недоступны. После восстановления маршруты снова станут активны."
                 : "Привычные сайты открываются напрямую, а нужный трафик проходит через защищенный маршрут."}
           </p>
         </article>

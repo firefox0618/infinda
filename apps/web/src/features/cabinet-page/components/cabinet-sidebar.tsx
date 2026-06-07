@@ -85,6 +85,7 @@ export function CabinetSidebar({
             <button
               key={tab.id}
               type="button"
+              data-testid={`cabinet-tab-${tab.id}`}
               className={`${styles.sidebarButton} ${
                 activeTab === tab.id ? styles.sidebarButtonActive : ""
               }`}
@@ -111,6 +112,7 @@ export function CabinetSidebar({
             className={styles.userCard}
             onClick={onOpenProfile}
             aria-label="Открыть настройки профиля"
+            data-testid="cabinet-open-profile-button"
             data-tooltip="Профиль"
           >
             <div className={styles.userAvatar}>{avatarLetter}</div>
@@ -126,6 +128,7 @@ export function CabinetSidebar({
             type="button"
             className={styles.logoutButton}
             aria-label="Выйти"
+            data-testid="cabinet-logout-button"
             data-tooltip="Выйти"
             onClick={onLogout}
           >

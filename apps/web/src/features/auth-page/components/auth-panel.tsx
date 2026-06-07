@@ -31,6 +31,7 @@ type VisibilityState = {
 type FieldErrors = {
   loginEmail?: string;
   loginPassword?: string;
+  registerName?: string;
   registerEmail?: string;
   registerPassword?: string;
   registerPasswordConfirm?: string;
@@ -248,6 +249,7 @@ export function AuthPanel() {
       if (error instanceof AuthRequestError) {
         setErrors((currentErrors) => ({
           ...currentErrors,
+          registerName: error.fieldErrors?.name,
           registerEmail: error.fieldErrors?.email,
           registerPassword: error.fieldErrors?.password,
         }));
@@ -295,6 +297,7 @@ export function AuthPanel() {
               </label>
               <input
                 id="login-email"
+                data-testid="login-email-input"
                 className={styles.input}
                 type="email"
                 value={loginEmail}
@@ -313,6 +316,7 @@ export function AuthPanel() {
               <div className={styles.passwordField}>
                 <input
                   id="login-password"
+                  data-testid="login-password-input"
                   className={styles.input}
                   type={showPassword.loginPassword ? "text" : "password"}
                   value={loginPassword}
@@ -351,6 +355,7 @@ export function AuthPanel() {
 
             <button
               type="button"
+              data-testid="login-submit-button"
               className={`${styles.submitButton} ${
                 loginState === "loading"
                   ? styles.submitButtonLoading
@@ -412,12 +417,16 @@ export function AuthPanel() {
               </label>
               <input
                 id="register-name"
+                data-testid="register-name-input"
                 className={styles.input}
                 type="text"
                 value={registerName}
                 onChange={(event) => setRegisterName(event.target.value)}
                 placeholder="Необязательно"
               />
+              {errors.registerName ? (
+                <span className={styles.errorText}>{errors.registerName}</span>
+              ) : null}
             </div>
 
             <div className={styles.field}>
@@ -426,6 +435,7 @@ export function AuthPanel() {
               </label>
               <input
                 id="register-email"
+                data-testid="register-email-input"
                 className={styles.input}
                 type="email"
                 value={registerEmail}
@@ -444,6 +454,7 @@ export function AuthPanel() {
               <div className={styles.passwordField}>
                 <input
                   id="register-password"
+                  data-testid="register-password-input"
                   className={styles.input}
                   type={showPassword.registerPassword ? "text" : "password"}
                   value={registerPassword}
@@ -470,6 +481,7 @@ export function AuthPanel() {
               <div className={styles.passwordField}>
                 <input
                   id="register-password-confirm"
+                  data-testid="register-password-confirm-input"
                   className={styles.input}
                   type={showPassword.registerPasswordConfirm ? "text" : "password"}
                   value={registerPasswordConfirm}
@@ -496,6 +508,7 @@ export function AuthPanel() {
             <label className={styles.checkboxRow}>
               <input
                 type="checkbox"
+                data-testid="register-terms-checkbox"
                 checked={registerTerms}
                 onChange={(event) => setRegisterTerms(event.target.checked)}
                 className={styles.checkboxInput}
@@ -518,6 +531,7 @@ export function AuthPanel() {
 
             <button
               type="button"
+              data-testid="register-submit-button"
               className={`${styles.submitButton} ${
                 registerState === "loading"
                   ? styles.submitButtonLoading

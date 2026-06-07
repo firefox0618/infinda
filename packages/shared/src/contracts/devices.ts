@@ -4,16 +4,27 @@ export const devicesApiPaths = {
 } as const;
 
 export type DeviceIconCode = "desktop" | "mobile" | "laptop";
-export type DeviceStatusCode = "online" | "offline";
+export type DeviceComputedStatusCode =
+  | "active"
+  | "revoked"
+  | "stale"
+  | "limit_exceeded";
 
 export type DeviceDto = {
   id: number;
-  name: string;
+  display_name: string;
   icon: DeviceIconCode;
   ip: string;
   last_seen: string;
-  status: DeviceStatusCode;
-  platform_name: string;
-  client_name: string;
+  computed_status: DeviceComputedStatusCode;
+  is_current: boolean;
+  revoked_at: string | null;
+  revoked_reason: string;
+  platform: string;
+  client: string;
   meta: string;
+};
+
+export type RevokeDeviceRequestDto = {
+  reason?: string;
 };

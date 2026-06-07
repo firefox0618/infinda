@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from apps.routing.models import ConnectionRoute
+
 
 class Subscription(models.Model):
     user = models.OneToOneField(
@@ -31,6 +33,53 @@ class Subscription(models.Model):
         return max((self.ends_at - today).days, 0)
 
 
+class SubscriptionHistoryEvent(models.Model):
+    EVENT_TRIAL_STARTED = "trial_started"
+    EVENT_ACTIVATED = "activated"
+    EVENT_RENEWED = "renewed"
+
+    EVENT_CHOICES = (
+        (EVENT_TRIAL_STARTED, "Триал начат"),
+        (EVENT_ACTIVATED, "Подписка активирована"),
+        (EVENT_RENEWED, "Подписка продлена"),
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="subscription_history_events",
+        verbose_name="Пользователь",
+    )
+    subscription = models.ForeignKey(
+        Subscription,
+        on_delete=models.CASCADE,
+        related_name="history_events",
+        verbose_name="Подписка",
+    )
+    payment = models.ForeignKey(
+        "SubscriptionPayment",
+        on_delete=models.SET_NULL,
+        related_name="history_events",
+        null=True,
+        blank=True,
+        verbose_name="Платеж",
+    )
+    event_type = models.CharField("Тип события", max_length=32, choices=EVENT_CHOICES)
+    plan_code = models.CharField("Код тарифа", max_length=16, blank=True)
+    plan_name = models.CharField("Название тарифа", max_length=120)
+    starts_at = models.DateField("Дата начала")
+    ends_at = models.DateField("Дата окончания")
+    created_at = models.DateTimeField("Создано", auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        verbose_name = "Событие подписки"
+        verbose_name_plural = "События подписки"
+
+    def __str__(self) -> str:
+        return f"SubscriptionHistoryEvent<{self.user_id}:{self.event_type}>"
+
+
 class SubscriptionRoute(models.Model):
     subscription = models.ForeignKey(
         Subscription,
@@ -41,6 +90,14 @@ class SubscriptionRoute(models.Model):
     code = models.CharField("Код страны", max_length=8)
     label = models.CharField("Страна", max_length=64)
     url = models.URLField("Ссылка маршрута")
+    connection_route = models.ForeignKey(
+        ConnectionRoute,
+        on_delete=models.PROTECT,
+        related_name="subscription_routes",
+        null=True,
+        blank=True,
+        verbose_name="Управляемый маршрут",
+    )
     position = models.PositiveSmallIntegerField("Порядок", default=0)
     created_at = models.DateTimeField("Создано", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлено", auto_now=True)

@@ -4,7 +4,12 @@ export const subscriptionApiPaths = {
   checkout: "subscription/checkout/",
 } as const;
 
-export type SubscriptionStatusDto = "none" | "trial" | "active" | "expired";
+export type SubscriptionStatusDto =
+  | "none"
+  | "trial"
+  | "active"
+  | "expired"
+  | "pending_payment";
 
 export type SubscriptionRouteDto = {
   code: string;
@@ -13,7 +18,28 @@ export type SubscriptionRouteDto = {
 };
 
 export type EmptySubscriptionDto = {
-  status: "none";
+  status: "none" | "pending_payment";
+  pending_payment: SubscriptionPaymentHistoryDto | null;
+};
+
+export type SubscriptionPaymentHistoryDto = {
+  id: number;
+  plan_code: string;
+  plan_name: string;
+  amount_rub: number;
+  status: string;
+  created_at: string;
+  paid_at: string | null;
+};
+
+export type SubscriptionHistoryEventDto = {
+  id: number;
+  event_type: "trial_started" | "activated" | "renewed";
+  plan_code: string;
+  plan_name: string;
+  starts_at: string;
+  ends_at: string;
+  created_at: string;
 };
 
 export type FilledSubscriptionDto = {
@@ -25,6 +51,9 @@ export type FilledSubscriptionDto = {
   remaining_days: number;
   max_devices: number;
   countries: SubscriptionRouteDto[];
+  payment_history: SubscriptionPaymentHistoryDto[];
+  subscription_history: SubscriptionHistoryEventDto[];
+  pending_payment: SubscriptionPaymentHistoryDto | null;
 };
 
 export type SubscriptionDto = EmptySubscriptionDto | FilledSubscriptionDto;

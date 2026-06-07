@@ -88,6 +88,9 @@ class SubscriptionApiTests(APITestCase):
                 "remaining_days",
                 "max_devices",
                 "countries",
+                "payment_history",
+                "subscription_history",
+                "pending_payment",
             },
         )
         self.assertEqual(response.data["status"], "active")
@@ -97,6 +100,8 @@ class SubscriptionApiTests(APITestCase):
         self.assertEqual(response.data["max_devices"], 10)
         self.assertEqual(len(response.data["countries"]), 2)
         self.assertEqual(response.data["countries"][0]["code"], "ru")
+        self.assertEqual(response.data["payment_history"], [])
+        self.assertEqual(response.data["pending_payment"], None)
 
     def test_get_subscription_returns_none_state_without_subscription(self):
         self.subscription.delete()
@@ -104,7 +109,7 @@ class SubscriptionApiTests(APITestCase):
         response = self.client.get("/api/subscription/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, {"status": "none"})
+        self.assertEqual(response.data, {"status": "none", "pending_payment": None})
 
     def test_get_subscription_returns_expired_state(self):
         self.subscription.ends_at = timezone.localdate() - timedelta(days=1)
@@ -115,6 +120,26 @@ class SubscriptionApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], "expired")
         self.assertEqual(response.data["remaining_days"], 0)
+
+    def test_get_subscription_returns_pending_payment_state_without_subscription(self):
+        self.subscription.delete()
+        pending_payment = SubscriptionPayment.objects.create(
+            user=self.user,
+            plan_code="1m",
+            plan_name="1 месяц",
+            amount_rub=149,
+            duration_days=30,
+            max_devices=3,
+            provider=SubscriptionPayment.PROVIDER_PLATEGA,
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+        )
+
+        response = self.client.get("/api/subscription/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "pending_payment")
+        self.assertEqual(response.data["pending_payment"]["id"], pending_payment.id)
 
     def test_create_trial_subscription_creates_default_routes(self):
         trial_user = User.objects.create_user(
@@ -217,6 +242,7 @@ class SubscriptionApiTests(APITestCase):
         self.assertIsNotNone(payment.paid_at)
         self.assertEqual(subscription.plan_name, "3 месяца")
         self.assertEqual(subscription.max_devices, 4)
+        self.assertEqual(buyer.subscription_history_events.count(), 1)
 
     def test_mark_subscription_payment_canceled_updates_status(self):
         payment = SubscriptionPayment.objects.create(
