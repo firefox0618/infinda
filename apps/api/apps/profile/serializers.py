@@ -40,6 +40,19 @@ class UpdateProfileSerializer(serializers.Serializer):
         write_only=True,
     )
 
+    def validate_email(self, value: str):
+        normalized_email = value.strip().lower()
+        user = self.context["request"].user
+
+        if (
+            User.objects.filter(email__iexact=normalized_email)
+            .exclude(pk=user.pk)
+            .exists()
+        ):
+            raise serializers.ValidationError("Пользователь с таким email уже существует.")
+
+        return normalized_email
+
     def validate(self, attrs):
         new_password = attrs.get("new_password")
         current_password = attrs.get("current_password")

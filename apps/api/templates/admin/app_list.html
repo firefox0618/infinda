@@ -1,57 +1,28 @@
-{% if app_list %}
-  <div class="admin-workspace-nav">
+<div class="admin-workspace-nav">
+  {% for workspace in admin_workspaces %}
     <a
-      class="admin-workspace-link{% if request.path == '/admin/' and request.GET.workspace != 'problems' %} admin-workspace-link--active{% endif %}"
-      href="{% url 'admin:index' %}?workspace=finance#dashboard-zone-finance"
+      class="admin-workspace-link{% if workspace.is_active %} admin-workspace-link--active{% endif %}"
+      href="{% url workspace.url_name %}"
     >
-      <span class="admin-workspace-link__icon">FN</span>
+      <span class="admin-workspace-link__icon">{{ workspace.icon }}</span>
       <span class="admin-workspace-link__body">
-        <span class="admin-workspace-link__title">Финансы</span>
-        <span class="admin-workspace-link__note">Выручка, оплаты и сводка</span>
+        <span class="admin-workspace-link__title">{{ workspace.label }}</span>
+        <span class="admin-workspace-link__note">{{ workspace.note }}</span>
       </span>
     </a>
-    <a
-      class="admin-workspace-link{% if '/admin/subscription/subscription/' in request.path or '/admin/subscription/subscriptionroute/' in request.path %} admin-workspace-link--active{% endif %}"
-      href="{% url 'admin:subscription_subscription_changelist' %}"
-    >
-      <span class="admin-workspace-link__icon">SB</span>
-      <span class="admin-workspace-link__body">
-        <span class="admin-workspace-link__title">Подписки</span>
-        <span class="admin-workspace-link__note">Статусы, сроки и маршруты</span>
-      </span>
-    </a>
-    <a
-      class="admin-workspace-link{% if request.GET.workspace == 'problems' or '/admin/subscription/subscriptionpayment/' in request.path %} admin-workspace-link--active{% endif %}"
-      href="{% url 'admin:index' %}?workspace=problems#dashboard-zone-problems"
-    >
-      <span class="admin-workspace-link__icon">!!</span>
-      <span class="admin-workspace-link__body">
-        <span class="admin-workspace-link__title">Проблемы</span>
-        <span class="admin-workspace-link__note">Сбои, pending и отмены</span>
-      </span>
-    </a>
-    <a
-      class="admin-workspace-link{% if '/admin/devices/device/' in request.path %} admin-workspace-link--active{% endif %}"
-      href="{% url 'admin:devices_device_changelist' %}"
-    >
-      <span class="admin-workspace-link__icon">DV</span>
-      <span class="admin-workspace-link__body">
-        <span class="admin-workspace-link__title">Устройства</span>
-        <span class="admin-workspace-link__note">Контроль, отзыв и активность</span>
-      </span>
-    </a>
-  </div>
+  {% endfor %}
+</div>
 
+{% if admin_workspace_app_list %}
   <div class="admin-app-grid">
-    {% for app in app_list %}
-      {% if app.app_url and '/devices/' in app.app_url %}
-      {% elif app.app_url and '/subscription/' in app.app_url %}
-      {% else %}
-      <details class="admin-app-card{% if app.app_url and app.app_url in request.path %} admin-app-card--active{% endif %}">
+    {% for app in admin_workspace_app_list %}
+      <details class="admin-app-card{% if app.app_url and app.app_url in request.path %} admin-app-card--active{% endif %}"{% if app.app_url and app.app_url in request.path %} open{% endif %}>
         <summary class="admin-app-card__summary">
           <div class="admin-app-card__head">
             <span class="admin-app-card__icon">
-              {% if app.app_url and '/subscription/' in app.app_url %}
+              {% if app.app_url and '/support/' in app.app_url %}
+                SP
+              {% elif app.app_url and '/subscription/' in app.app_url %}
                 SB
               {% elif app.app_url and '/devices/' in app.app_url %}
                 DV
@@ -59,10 +30,10 @@
                 LG
               {% elif app.app_url and '/profile/' in app.app_url %}
                 PF
+              {% elif app.app_url and '/telegram/' in app.app_url %}
+                TG
               {% elif app.app_url and '/auth/' in app.app_url %}
                 AU
-              {% elif app.app_url and '/authtoken/' in app.app_url %}
-                TK
               {% else %}
                 AD
               {% endif %}
@@ -100,7 +71,13 @@
           {% endfor %}
         </div>
       </details>
-      {% endif %}
     {% endfor %}
+  </div>
+{% elif admin_active_workspace == "overview" %}
+  <div class="dashboard-panel dashboard-panel--wide" style="margin-top: 22px;">
+    <h2 class="dashboard-panel__title">Вторичный слой</h2>
+    <div class="dashboard-card__note">
+      Для `Обзора` верхний уровень остается чистым: Telegram, аудит и профильные модели доступны через рабочие карточки пользователей и sidebar.
+    </div>
   </div>
 {% endif %}

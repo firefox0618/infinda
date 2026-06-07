@@ -8,6 +8,9 @@ class UserActivity(models.Model):
         LOGOUT = "logout", "Выход"
         PROFILE_UPDATED = "profile_updated", "Обновление профиля"
         DEVICE_REVOKED = "device_revoked", "Отзыв устройства"
+        SUPPORT_MESSAGE_SENT = "support_message_sent", "Сообщение в поддержку"
+        TELEGRAM_LINKED = "telegram_linked", "Привязка Telegram"
+        TELEGRAM_UNLINKED = "telegram_unlinked", "Отвязка Telegram"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -7,229 +7,79 @@
 
 {% block content %}
   <div id="content-main">
-    {% if request.GET.workspace == "finance" %}
-      <div class="dashboard-grid dashboard-grid--finance">
-        {% for card in admin_dashboard_cards %}
-          {% if card.label == "Оплачено за месяц" or card.label == "Платежи в ожидании" or card.label == "Активные подписки" or card.label == "Пользователи" %}
-            <section class="dashboard-card">
-              <div class="dashboard-card__label">{{ card.label }}</div>
-              <div class="dashboard-card__value">{{ card.value }}</div>
-              <div class="dashboard-card__note">{{ card.note }}</div>
-            </section>
-          {% endif %}
-        {% endfor %}
+    <section class="dashboard-panel dashboard-panel--wide" style="margin-bottom: 22px;">
+      <h2 class="dashboard-panel__title">Обзор</h2>
+      <div class="dashboard-card__note">
+        Операционный центр админки INFINDA: сначала очереди внимания, затем быстрые действия и последние события.
       </div>
+    </section>
 
-      <section class="dashboard-panel dashboard-panel--wide" id="dashboard-zone-finance" style="margin-bottom: 22px;">
-        <h2 class="dashboard-panel__title">Финансы по месяцам</h2>
-        <div class="dashboard-bars">
-          {% for item in admin_dashboard_monthly_report %}
-            <div class="dashboard-bar__row">
-              <div class="dashboard-bar__meta">
-                <span>{{ item.month|date:"F Y" }}</span>
-                <span>{{ item.total_amount }} ₽ · {{ item.payments_count }} шт.</span>
-              </div>
-              <div class="dashboard-bar__track">
-                <div class="dashboard-bar__fill" style="width: {{ item.bar_width }}%;"></div>
-              </div>
-            </div>
-          {% empty %}
-            <div class="dashboard-card__note">Оплаченных платежей пока нет.</div>
-          {% endfor %}
-        </div>
-      </section>
+    <div class="dashboard-grid">
+      {% for card in admin_dashboard_cards %}
+        <a
+          class="dashboard-card"
+          href="{% url card.url_name %}{% if card.query %}?{{ card.query }}{% endif %}"
+          style="text-decoration: none;"
+        >
+          <div class="dashboard-card__label">{{ card.label }}</div>
+          <div class="dashboard-card__value">{{ card.value }}</div>
+          <div class="dashboard-card__note">{{ card.note }}</div>
+        </a>
+      {% endfor %}
+    </div>
 
-      <section class="dashboard-table dashboard-table--finance" style="margin-bottom: 22px;">
-        <h2 class="dashboard-table__title">Последние платежи</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Пользователь</th>
-              <th>Тариф</th>
-              <th>Сумма</th>
-              <th>Статус</th>
-              <th>Дата</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for payment in admin_dashboard_recent_payments %}
-              <tr>
-                <td><a href="{% url 'admin:subscription_subscriptionpayment_change' payment.pk %}">#{{ payment.pk }}</a></td>
-                <td>{{ payment.user.email }}</td>
-                <td>{{ payment.plan_name }}</td>
-                <td>{{ payment.amount_rub }} ₽</td>
-                <td>
-                  <span class="dashboard-status dashboard-status--{{ payment.status }}">
-                    {{ payment.get_status_display }}
-                  </span>
-                </td>
-                <td>{{ payment.created_at|date:"d.m.Y H:i" }}</td>
-              </tr>
-            {% empty %}
-              <tr>
-                <td colspan="6" class="dashboard-card__note">Платежей пока нет.</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </section>
-    {% elif request.GET.workspace == "problems" %}
-      <section class="dashboard-panel dashboard-panel--wide" id="dashboard-zone-problems" style="margin-bottom: 22px;">
-        <h2 class="dashboard-panel__title">Проблемные платежи</h2>
-        <div class="dashboard-mini-list">
-          {% for payment in admin_dashboard_problem_payments %}
-            <a class="dashboard-mini-item" href="{% url 'admin:subscription_subscriptionpayment_change' payment.pk %}">
-              <div class="dashboard-mini-item__main">
-                <div class="dashboard-mini-item__title">#{{ payment.pk }} · {{ payment.user.email }}</div>
-                <div class="dashboard-mini-item__note">{{ payment.plan_name }} · {{ payment.amount_rub }} ₽</div>
-              </div>
-              <div class="dashboard-mini-item__side">
-                <div class="dashboard-status dashboard-status--{{ payment.status }}">
-                  {{ payment.get_status_display }}
-                </div>
-                <div class="dashboard-mini-item__meta">{{ payment.created_at|date:"d.m.Y H:i" }}</div>
-              </div>
-            </a>
-          {% empty %}
-            <div class="dashboard-card__note">Проблемных платежей сейчас нет.</div>
-          {% endfor %}
-        </div>
-      </section>
-
-      <section class="dashboard-feed dashboard-panel--wide" style="margin-bottom: 22px;">
-        <h2 class="dashboard-feed__title">Последние действия</h2>
-        <div class="dashboard-feed__list">
-          {% for activity in admin_dashboard_recent_activities %}
-            <div class="dashboard-feed__item">
-              <div class="dashboard-feed__meta">
-                {{ activity.created_at|date:"d.m.Y H:i" }}
-                {% if activity.user %} · {{ activity.user.email }}{% endif %}
-              </div>
-              <div class="dashboard-feed__text">{{ activity.description }}</div>
-            </div>
-          {% empty %}
-            <div class="dashboard-card__note">Действий пока нет.</div>
-          {% endfor %}
-        </div>
-      </section>
-    {% else %}
-      <div class="dashboard-grid">
-        {% for card in admin_dashboard_cards %}
-          <section class="dashboard-card">
-            <div class="dashboard-card__label">{{ card.label }}</div>
-            <div class="dashboard-card__value">{{ card.value }}</div>
-            <div class="dashboard-card__note">{{ card.note }}</div>
-          </section>
-        {% endfor %}
+    <section class="dashboard-panel dashboard-panel--wide" style="margin-bottom: 22px;">
+      <h2 class="dashboard-panel__title">Очередь внимания</h2>
+      <div class="dashboard-card__note" style="margin-bottom: 16px;">
+        Новые тикеты: {{ admin_dashboard_attention_stats.new_tickets_count }} ·
+        Без оператора: {{ admin_dashboard_attention_stats.unassigned_tickets_count }} ·
+        Проблемные платежи: {{ admin_dashboard_attention_stats.problem_payments_count }} ·
+        Истекают за 7 дней: {{ admin_dashboard_attention_stats.expiring_subscriptions_count }} ·
+        Устройства под проверкой: {{ admin_dashboard_attention_stats.device_alerts_count }}
       </div>
-
-      <div class="dashboard-quick-links">
-        {% for link in admin_dashboard_quick_links %}
-          <a class="dashboard-quick-link" href="{% url link.url_name %}">
-            <div class="dashboard-quick-link__label">{{ link.label }}</div>
-            <div class="dashboard-quick-link__note">{{ link.note }}</div>
-          </a>
-        {% endfor %}
-      </div>
-
-      <section class="dashboard-panel dashboard-panel--wide" id="dashboard-zone-finance" style="margin-bottom: 22px;">
-        <h2 class="dashboard-panel__title">Финансы по месяцам</h2>
-        <div class="dashboard-bars">
-          {% for item in admin_dashboard_monthly_report %}
-            <div class="dashboard-bar__row">
-              <div class="dashboard-bar__meta">
-                <span>{{ item.month|date:"F Y" }}</span>
-                <span>{{ item.total_amount }} ₽ · {{ item.payments_count }} шт.</span>
-              </div>
-              <div class="dashboard-bar__track">
-                <div class="dashboard-bar__fill" style="width: {{ item.bar_width }}%;"></div>
-              </div>
-            </div>
-          {% empty %}
-            <div class="dashboard-card__note">Оплаченных платежей пока нет.</div>
-          {% endfor %}
-        </div>
-      </section>
-
-      <div class="dashboard-layout">
-        <section class="dashboard-feed">
-          <h2 class="dashboard-feed__title">Последние действия</h2>
-          <div class="dashboard-feed__list">
-            {% for activity in admin_dashboard_recent_activities %}
-              <div class="dashboard-feed__item">
-                <div class="dashboard-feed__meta">
-                  {{ activity.created_at|date:"d.m.Y H:i" }}
-                  {% if activity.user %} · {{ activity.user.email }}{% endif %}
-                </div>
-                <div class="dashboard-feed__text">{{ activity.description }}</div>
-              </div>
-            {% empty %}
-              <div class="dashboard-card__note">Действий пока нет.</div>
-            {% endfor %}
-          </div>
-        </section>
-      </div>
-
-      <section class="dashboard-table" style="margin-bottom: 22px;">
-        <h2 class="dashboard-table__title">Последние платежи</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Пользователь</th>
-              <th>Тариф</th>
-              <th>Сумма</th>
-              <th>Статус</th>
-              <th>Дата</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for payment in admin_dashboard_recent_payments %}
-              <tr>
-                <td><a href="{% url 'admin:subscription_subscriptionpayment_change' payment.pk %}">#{{ payment.pk }}</a></td>
-                <td>{{ payment.user.email }}</td>
-                <td>{{ payment.plan_name }}</td>
-                <td>{{ payment.amount_rub }} ₽</td>
-                <td>
-                  <span class="dashboard-status dashboard-status--{{ payment.status }}">
-                    {{ payment.get_status_display }}
-                  </span>
-                </td>
-                <td>{{ payment.created_at|date:"d.m.Y H:i" }}</td>
-              </tr>
-            {% empty %}
-              <tr>
-                <td colspan="6" class="dashboard-card__note">Платежей пока нет.</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </section>
-
       <div class="dashboard-management-grid">
-        <section class="dashboard-panel" id="dashboard-zone-subscriptions">
-          <h2 class="dashboard-panel__title">Скоро истекают</h2>
+        <section class="dashboard-panel">
+          <h3 class="dashboard-panel__title">Новые тикеты</h3>
           <div class="dashboard-mini-list">
-            {% for subscription in admin_dashboard_expiring_subscriptions %}
-              <a class="dashboard-mini-item" href="{% url 'admin:subscription_subscription_change' subscription.pk %}">
+            {% for conversation in admin_dashboard_new_tickets %}
+              <a class="dashboard-mini-item" href="{% url 'admin:support_supportconversation_change' conversation.pk %}">
                 <div class="dashboard-mini-item__main">
-                  <div class="dashboard-mini-item__title">{{ subscription.user.email }}</div>
-                  <div class="dashboard-mini-item__note">{{ subscription.plan_name }} · {{ subscription.max_devices }} устройств</div>
+                  <div class="dashboard-mini-item__title">#{{ conversation.pk }} · {{ conversation.user.email }}</div>
+                  <div class="dashboard-mini-item__note">{{ conversation.last_message_preview|default:"Без текста последнего сообщения" }}</div>
                 </div>
                 <div class="dashboard-mini-item__side">
-                  <div class="dashboard-mini-item__badge">{{ subscription.remaining_days }} дн.</div>
-                  <div class="dashboard-mini-item__meta">до {{ subscription.ends_at|date:"d.m.Y" }}</div>
+                  <div class="dashboard-mini-item__badge">{{ conversation.get_status_display }}</div>
+                  <div class="dashboard-mini-item__meta">{{ conversation.last_message_at|date:"d.m.Y H:i" }}</div>
                 </div>
               </a>
             {% empty %}
-              <div class="dashboard-card__note">Ближайших окончаний подписки пока нет.</div>
+              <div class="dashboard-card__note">Новых тикетов сейчас нет.</div>
             {% endfor %}
           </div>
         </section>
 
-        <section class="dashboard-panel dashboard-panel--wide" id="dashboard-zone-problems">
-          <h2 class="dashboard-panel__title">Проблемные платежи</h2>
+        <section class="dashboard-panel">
+          <h3 class="dashboard-panel__title">Без оператора</h3>
+          <div class="dashboard-mini-list">
+            {% for conversation in admin_dashboard_unassigned_tickets %}
+              <a class="dashboard-mini-item" href="{% url 'admin:support_supportconversation_change' conversation.pk %}">
+                <div class="dashboard-mini-item__main">
+                  <div class="dashboard-mini-item__title">#{{ conversation.pk }} · {{ conversation.user.email }}</div>
+                  <div class="dashboard-mini-item__note">{{ conversation.last_message_preview|default:"Нужно назначить оператора" }}</div>
+                </div>
+                <div class="dashboard-mini-item__side">
+                  <div class="dashboard-mini-item__badge">Без оператора</div>
+                  <div class="dashboard-mini-item__meta">{{ conversation.updated_at|date:"d.m.Y H:i" }}</div>
+                </div>
+              </a>
+            {% empty %}
+              <div class="dashboard-card__note">Все открытые тикеты уже распределены.</div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="dashboard-panel">
+          <h3 class="dashboard-panel__title">Проблемные платежи</h3>
           <div class="dashboard-mini-list">
             {% for payment in admin_dashboard_problem_payments %}
               <a class="dashboard-mini-item" href="{% url 'admin:subscription_subscriptionpayment_change' payment.pk %}">
@@ -250,26 +100,136 @@
           </div>
         </section>
 
-        <section class="dashboard-panel" id="dashboard-zone-devices">
-          <h2 class="dashboard-panel__title">Контроль устройств</h2>
+        <section class="dashboard-panel">
+          <h3 class="dashboard-panel__title">Скоро истекают</h3>
           <div class="dashboard-mini-list">
-            {% for device in admin_dashboard_device_alerts %}
-              <a class="dashboard-mini-item" href="{% url 'admin:devices_device_change' device.pk %}">
+            {% for subscription in admin_dashboard_expiring_subscriptions %}
+              <a class="dashboard-mini-item" href="{% url 'admin:subscription_subscription_change' subscription.pk %}">
                 <div class="dashboard-mini-item__main">
-                  <div class="dashboard-mini-item__title">{{ device.user.email }}</div>
-                  <div class="dashboard-mini-item__note">{{ device.name }} · {{ device.platform_name }} · {{ device.client_name }}</div>
+                  <div class="dashboard-mini-item__title">{{ subscription.user.email }}</div>
+                  <div class="dashboard-mini-item__note">{{ subscription.plan_name }} · {{ subscription.max_devices }} устройств</div>
                 </div>
                 <div class="dashboard-mini-item__side">
-                  <div class="dashboard-mini-item__badge">{{ device.get_status_display }}</div>
-                  <div class="dashboard-mini-item__meta">{{ device.last_seen|date:"d.m.Y H:i" }}</div>
+                  <div class="dashboard-mini-item__badge">{{ subscription.remaining_days }} дн.</div>
+                  <div class="dashboard-mini-item__meta">до {{ subscription.ends_at|date:"d.m.Y" }}</div>
                 </div>
               </a>
             {% empty %}
-              <div class="dashboard-card__note">Устройства для контроля пока не выявлены.</div>
+              <div class="dashboard-card__note">Подписок с близким окончанием сейчас нет.</div>
             {% endfor %}
           </div>
         </section>
       </div>
-    {% endif %}
+    </section>
+
+    <section class="dashboard-panel dashboard-panel--wide" style="margin-bottom: 22px;">
+      <h2 class="dashboard-panel__title">Быстрые действия</h2>
+      <div class="dashboard-quick-links">
+        {% for link in admin_dashboard_quick_links %}
+          <a class="dashboard-quick-link" href="{% url link.url_name %}{% if link.query %}?{{ link.query }}{% endif %}">
+            <div class="dashboard-quick-link__label">{{ link.label }}</div>
+            <div class="dashboard-quick-link__note">{{ link.note }}</div>
+          </a>
+        {% endfor %}
+      </div>
+      <div class="dashboard-card__note" style="margin-top: 16px;">
+        Пользователей без Telegram: {{ admin_dashboard_attention_stats.users_without_telegram_count }}.
+      </div>
+    </section>
+
+    <section class="dashboard-panel dashboard-panel--wide" style="margin-bottom: 22px;">
+      <h2 class="dashboard-panel__title">Устройства, требующие проверки</h2>
+      <div class="dashboard-mini-list">
+        {% for device in admin_dashboard_device_alerts %}
+          <a class="dashboard-mini-item" href="{% url 'admin:devices_device_change' device.pk %}">
+            <div class="dashboard-mini-item__main">
+              <div class="dashboard-mini-item__title">{{ device.user.email }} · {{ device.name }}</div>
+              <div class="dashboard-mini-item__note">{{ device.platform_name }} · {{ device.client_name }} · {{ device.ip_address }}</div>
+            </div>
+            <div class="dashboard-mini-item__side">
+              <div class="dashboard-mini-item__badge">{{ device.get_status_display }}</div>
+              <div class="dashboard-mini-item__meta">{{ device.last_seen|date:"d.m.Y H:i" }}</div>
+            </div>
+          </a>
+        {% empty %}
+          <div class="dashboard-card__note">Подозрительных или устаревших устройств сейчас нет.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="dashboard-layout">
+      <section class="dashboard-feed">
+        <h2 class="dashboard-feed__title">Последние ответы поддержки</h2>
+        <div class="dashboard-feed__list">
+          {% for message in admin_dashboard_support_events %}
+            <div class="dashboard-feed__item">
+              <div class="dashboard-feed__meta">
+                {{ message.created_at|date:"d.m.Y H:i" }}
+                {% if message.sender_user %} · {{ message.sender_user.get_full_name|default:message.sender_user.username }}{% endif %}
+              </div>
+              <div class="dashboard-feed__text">
+                <a href="{% url 'admin:support_supportconversation_change' message.conversation.pk %}">#{{ message.conversation.pk }} · {{ message.conversation.user.email }}</a>
+                · {{ message.text|default:"Ответ без текста, только вложения" }}
+              </div>
+            </div>
+          {% empty %}
+            <div class="dashboard-card__note">Ответов поддержки пока нет.</div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="dashboard-feed">
+        <h2 class="dashboard-feed__title">Последние действия по пользователям</h2>
+        <div class="dashboard-feed__list">
+          {% for activity in admin_dashboard_recent_activities %}
+            <div class="dashboard-feed__item">
+              <div class="dashboard-feed__meta">
+                {{ activity.created_at|date:"d.m.Y H:i" }}
+                {% if activity.user %} · {{ activity.user.email }}{% endif %}
+              </div>
+              <div class="dashboard-feed__text">{{ activity.description }}</div>
+            </div>
+          {% empty %}
+            <div class="dashboard-card__note">Действий пока нет.</div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <section class="dashboard-table dashboard-table--finance" style="margin-bottom: 22px;">
+      <h2 class="dashboard-table__title">Последние платежи</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Пользователь</th>
+            <th>Тариф</th>
+            <th>Сумма</th>
+            <th>Статус</th>
+            <th>Дата</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payment in admin_dashboard_recent_payments %}
+            <tr>
+              <td><a href="{% url 'admin:subscription_subscriptionpayment_change' payment.pk %}">#{{ payment.pk }}</a></td>
+              <td>{{ payment.user.email }}</td>
+              <td>{{ payment.plan_name }}</td>
+              <td>{{ payment.amount_rub }} ₽</td>
+              <td>
+                <span class="dashboard-status dashboard-status--{{ payment.status }}">
+                  {{ payment.get_status_display }}
+                </span>
+              </td>
+              <td>{{ payment.created_at|date:"d.m.Y H:i" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="dashboard-card__note">Платежей пока нет.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
   </div>
 {% endblock %}

@@ -21,6 +21,7 @@ def update_profile(*, user: User, data: dict, ip_address: str | None = None) -> 
 
     if "email" in data:
         user.email = data["email"]
+        user.username = data["email"]
     if "first_name" in data:
         user.first_name = data["first_name"]
     if "last_name" in data:

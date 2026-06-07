@@ -63,6 +63,24 @@ class SubscriptionPaymentInline(admin.TabularInline):
         return False
 
 
+class TelegramBindingFilter(admin.SimpleListFilter):
+    title = "Telegram"
+    parameter_name = "telegram_state"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("linked", "Привязан"),
+            ("unlinked", "Не привязан"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "linked":
+            return queryset.filter(telegram_link__isnull=False)
+        if self.value() == "unlinked":
+            return queryset.filter(telegram_link__isnull=True)
+        return queryset
+
+
 @admin.register(User)
 class InfindaUserAdmin(UserAdmin):
     list_display = (
@@ -75,6 +93,7 @@ class InfindaUserAdmin(UserAdmin):
         "last_login",
     )
     search_fields = ("id", "username", "email", "first_name", "last_name")
+    list_filter = ("is_staff", "is_superuser", "is_active", "groups", TelegramBindingFilter)
     inlines = (UserProfileInline, SubscriptionInline, SubscriptionPaymentInline, UserActivityInline)
     actions = (
         "grant_trial_subscription",

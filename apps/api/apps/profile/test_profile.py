@@ -19,6 +19,11 @@ class ProfileApiTests(APITestCase):
         )
         self.token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        self.other_user = User.objects.create_user(
+            username="taken-user",
+            email="taken@example.com",
+            password="strong-pass-123",
+        )
 
     def test_get_profile_returns_current_user_data(self):
         response = self.client.get("/api/profile/me/")
@@ -49,6 +54,7 @@ class ProfileApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "new@example.com")
+        self.assertEqual(self.user.username, "new@example.com")
         self.assertEqual(self.user.first_name, "Rudolf")
         self.assertEqual(self.user.last_name, "Naumow")
         self.assertTrue(self.user.check_password("updated-pass-123"))
@@ -72,6 +78,19 @@ class ProfileApiTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "VALIDATION_ERROR")
         self.assertIn("current_password", response.data["error"]["details"])
+
+    def test_patch_profile_rejects_duplicate_email(self):
+        response = self.client.patch(
+            "/api/profile/me/",
+            {
+                "email": "taken@example.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "VALIDATION_ERROR")
+        self.assertIn("email", response.data["error"]["details"])
 
     def test_patch_profile_rejects_invalid_current_password(self):
         response = self.client.patch(
