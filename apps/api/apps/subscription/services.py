@@ -711,30 +711,24 @@ def confirm_subscription_payment_from_platega(
         if payload_plan_code is not None and str(payload_plan_code) != payment.plan_code:
             raise ValidationError({"plan_code": "Код тарифа не совпадает."})
 
-    payment.provider_status = str(callback_payload.get("status") or "").strip().upper()
+    provider_status = str(callback_payload.get("status") or "").strip().upper()
+    payment.provider_status = provider_status
     payment.provider_payload = callback_payload
-
-    if payment.provider_status == PlategaClient.STATUS_CONFIRMED:
-        if payment.status != SubscriptionPayment.STATUS_PAID:
-            payment.status = SubscriptionPayment.STATUS_PAID
-            payment.paid_at = timezone.now()
-            activate_subscription_plan(user=payment.user, plan_code=payment.plan_code)
-    elif payment.provider_status in {
-        PlategaClient.STATUS_CANCELED,
-        PlategaClient.STATUS_CHARGEBACKED,
-    }:
-        if payment.status == SubscriptionPayment.STATUS_PENDING:
-            payment.status = SubscriptionPayment.STATUS_CANCELED
-    elif payment.status == SubscriptionPayment.STATUS_PENDING:
-        payment.status = SubscriptionPayment.STATUS_PENDING
-
     payment.save(
         update_fields=[
             "provider_status",
             "provider_payload",
-            "status",
-            "paid_at",
             "updated_at",
         ]
     )
+
+    if provider_status == PlategaClient.STATUS_CONFIRMED:
+        return mark_subscription_payment_paid(payment=payment)
+
+    if provider_status in {
+        PlategaClient.STATUS_CANCELED,
+        PlategaClient.STATUS_CHARGEBACKED,
+    } and payment.status == SubscriptionPayment.STATUS_PENDING:
+        return mark_subscription_payment_canceled(payment=payment)
+
     return payment

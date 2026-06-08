@@ -10,10 +10,11 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from apps.devices.models import Device
+from apps.notifications.models import Notification
 from apps.provisioning.models import ProvisionedDeviceAccess, ProvisioningOperation
 from apps.routing.services import ensure_default_route_catalog, get_connection_route_by_code
 
-from .models import Subscription, SubscriptionPayment, SubscriptionRoute
+from .models import Subscription, SubscriptionHistoryEvent, SubscriptionPayment, SubscriptionRoute
 from .services import (
     create_trial_subscription,
     extend_subscription_by_days,
@@ -644,6 +645,66 @@ class SubscriptionApiTests(APITestCase):
         subscription = Subscription.objects.get(user=buyer)
         self.assertEqual(subscription.plan_name, "6 месяцев")
         self.assertEqual(subscription.max_devices, 5)
+        history_event = SubscriptionHistoryEvent.objects.get(payment=payment)
+        self.assertEqual(history_event.event_type, SubscriptionHistoryEvent.EVENT_ACTIVATED)
+        notification = Notification.objects.get(user=buyer, event_type=Notification.EVENT_PAYMENT_PAID)
+        self.assertEqual(notification.payload["payment_id"], payment.id)
+        self.assertEqual(notification.payload["plan_name"], "6 месяцев")
+
+    @override_settings(
+        PLATEGA_MERCHANT_ID="merchant-1",
+        PLATEGA_SECRET_KEY="secret-1",
+        PLATEGA_WEBHOOK_SECRET="webhook-secret",
+    )
+    def test_platega_webhook_cancels_pending_payment(self):
+        buyer = User.objects.create_user(
+            username="canceled-user",
+            email="canceled@example.com",
+            password="canceled-pass-123",
+        )
+        payment = SubscriptionPayment.objects.create(
+            user=buyer,
+            plan_code="1m",
+            plan_name="1 месяц",
+            amount_rub=149,
+            duration_days=30,
+            max_devices=3,
+            provider="platega",
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+            external_payment_id="plat-400",
+            checkout_url="https://pay.platega.example/plat-400",
+        )
+        body = {
+            "id": "plat-400",
+            "status": "CANCELED",
+            "paymentMethod": 2,
+            "payload": json.dumps(
+                {
+                    "type": "subscription",
+                    "payment_id": payment.id,
+                    "user_id": buyer.id,
+                    "plan_code": "1m",
+                }
+            ),
+        }
+
+        response = self.client.post(
+            "/api/subscription/webhooks/platega/webhook-secret/",
+            data=json.dumps(body),
+            content_type="application/json",
+            HTTP_X_MERCHANTID="merchant-1",
+            HTTP_X_SECRET="secret-1",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionPayment.STATUS_CANCELED)
+        self.assertEqual(payment.provider_status, "CANCELED")
+        self.assertFalse(Subscription.objects.filter(user=buyer).exists())
+        self.assertFalse(
+            Notification.objects.filter(user=buyer, event_type=Notification.EVENT_PAYMENT_PAID).exists()
+        )
 
     @override_settings(
         PLATEGA_MERCHANT_ID="merchant-1",

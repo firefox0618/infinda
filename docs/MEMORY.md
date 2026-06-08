@@ -41,6 +41,7 @@
 - При регистрации новый пользователь теперь должен автоматически получать trial-подписку `Триал 3 дня` и стартовые маршруты, чтобы `/cabinet` не открывался в полупустом состоянии.
 - Кабинет должен уметь корректно жить и без подписки: subscription API теперь должен описывать состояния `none / trial / active / expired`, а не ломать UI через `404`.
 - Для paid-сценария теперь используется единый реальный платежный контур через `Platega SBP`: checkout создается на backend, а подтверждение идет через webhook и только потом активирует подписку.
+- Post-payment behavior для `Platega` теперь тоже выровнен: webhook больше не обходит общий `mark_subscription_payment_*` path, поэтому history events, notifications и cancel-flow ведут себя одинаково для ручного и callback-сценария.
 - Локальное backend-окружение нужно считать валидным только после синхронизации `apps/api/.venv` через `pip install -r requirements.txt`; проверенный запуск и проверки выполняются через `apps/api/.venv/bin/python`.
 - В backend уже добавлены модули `profile` и `devices` с реальными endpoint-ами `GET/PATCH /api/profile/me/`, `GET /api/devices/`, `POST /api/devices/<id>/revoke/`.
 - В backend уже добавлен модуль `subscription` с реальным endpoint-ом `GET /api/subscription/`; вкладка `Подписка` в кабинете больше не живет только на моках.
