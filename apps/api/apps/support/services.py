@@ -41,6 +41,21 @@ def get_support_conversation(*, user) -> SupportConversation:
     return get_or_create_support_conversation(user=user)
 
 
+def list_support_conversations_for_admin(*, status: str | None = None, assigned_to: str | None = None, admin_user=None):
+    queryset = (
+        SupportConversation.objects.select_related("user", "assigned_admin")
+        .prefetch_related("messages__attachments")
+        .order_by("-last_message_at", "-updated_at", "-id")
+    )
+    if status:
+        queryset = queryset.filter(status=status)
+    if assigned_to == "me" and admin_user is not None:
+        queryset = queryset.filter(assigned_admin=admin_user)
+    elif assigned_to == "unassigned":
+        queryset = queryset.filter(assigned_admin__isnull=True)
+    return queryset
+
+
 def get_last_user_support_message(*, conversation: SupportConversation) -> SupportMessage | None:
     return (
         conversation.messages.filter(sender_type=SupportMessage.SenderType.USER)

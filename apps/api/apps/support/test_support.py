@@ -17,7 +17,7 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.authtoken.models import Token
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from apps.activity.models import UserActivity
 from apps.devices.models import Device
@@ -65,7 +65,10 @@ class SupportApiTests(APITestCase):
             password="support-pass-123",
         )
         self.token = Token.objects.create(user=self.user)
+        self.admin_token = Token.objects.create(user=self.admin_user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        self.admin_client = APIClient()
+        self.admin_client.credentials(HTTP_AUTHORIZATION=f"Token {self.admin_token.key}")
 
     def test_get_conversation_returns_empty_dialog_for_new_user(self):
         response = self.client.get("/api/support/conversation/")
@@ -219,6 +222,82 @@ class SupportApiTests(APITestCase):
                 conversation=conversation,
                 text="Я отвечу вместо назначенного оператора.",
             )
+
+    def test_admin_api_can_list_assign_reply_and_close_conversation(self):
+        self.client.post(
+            "/api/support/messages/",
+            {"text": "Нужна помощь через сайт"},
+            format="multipart",
+        )
+        conversation = SupportConversation.objects.get(user=self.user)
+
+        list_response = self.admin_client.get("/api/support/admin/conversations/")
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]["user_email"], self.user.email)
+        self.assertEqual(list_response.data[0]["delivery_channel"], "web")
+
+        assign_response = self.admin_client.post(
+            f"/api/support/admin/conversations/{conversation.id}/assign/",
+            {"admin_user_id": self.admin_user.id},
+            format="json",
+        )
+
+        self.assertEqual(assign_response.status_code, 200)
+        self.assertEqual(assign_response.data["assigned_admin_id"], self.admin_user.id)
+        self.assertEqual(assign_response.data["status"], "in_progress")
+
+        reply_response = self.admin_client.post(
+            f"/api/support/admin/conversations/{conversation.id}/reply/",
+            {
+                "text": "Берем в работу.",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(reply_response.status_code, 200)
+        self.assertEqual(reply_response.data["status"], "in_progress")
+        self.assertEqual(reply_response.data["messages"][-1]["sender_type"], "admin")
+        self.assertEqual(reply_response.data["messages"][-1]["text"], "Берем в работу.")
+
+        close_response = self.admin_client.post(
+            f"/api/support/admin/conversations/{conversation.id}/close/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(close_response.status_code, 200)
+        self.assertEqual(close_response.data["status"], "closed")
+        self.assertIsNotNone(close_response.data["closed_at"])
+
+    def test_admin_api_reply_respects_assigned_operator(self):
+        other_admin = User.objects.create_superuser(
+            username="support-admin-3",
+            email="support-admin-3@example.com",
+            password="support-pass-123",
+        )
+        other_admin_token = Token.objects.create(user=other_admin)
+        other_admin_client = APIClient()
+        other_admin_client.credentials(HTTP_AUTHORIZATION=f"Token {other_admin_token.key}")
+        self.client.post(
+            "/api/support/messages/",
+            {"text": "Тикет для закрепления"},
+            format="multipart",
+        )
+        conversation = SupportConversation.objects.get(user=self.user)
+        conversation.assigned_admin = self.admin_user
+        conversation.status = SupportConversation.Status.IN_PROGRESS
+        conversation.save(update_fields=["assigned_admin", "status", "updated_at"])
+
+        response = other_admin_client.post(
+            f"/api/support/admin/conversations/{conversation.id}/reply/",
+            {"text": "Попытка чужого ответа"},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "VALIDATION_ERROR")
 
     def test_create_message_from_telegram_creates_support_message_with_attachment(self):
         conversation = create_support_message_from_telegram(

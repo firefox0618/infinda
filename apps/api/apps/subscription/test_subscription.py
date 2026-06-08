@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from apps.devices.models import Device
 from apps.notifications.models import Notification
@@ -42,6 +42,14 @@ class SubscriptionApiTests(APITestCase):
         )
         self.token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        self.admin_user = User.objects.create_superuser(
+            username="subscription-admin",
+            email="subscription-admin@example.com",
+            password="subscription-pass-123",
+        )
+        self.admin_token = Token.objects.create(user=self.admin_user)
+        self.admin_client = APIClient()
+        self.admin_client.credentials(HTTP_AUTHORIZATION=f"Token {self.admin_token.key}")
         ensure_default_route_catalog()
         self.route_ru = get_connection_route_by_code(code="ru")
         self.route_de = get_connection_route_by_code(code="de")
@@ -775,3 +783,88 @@ class SubscriptionApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_admin_api_lists_pending_payments_and_can_mark_payment_paid(self):
+        pending_payment = SubscriptionPayment.objects.create(
+            user=self.user,
+            plan_code="3m",
+            plan_name="3 месяца",
+            amount_rub=399,
+            duration_days=90,
+            max_devices=4,
+            provider=SubscriptionPayment.PROVIDER_PLATEGA,
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+            external_payment_id="manual-admin-1",
+            checkout_url="https://pay.platega.example/manual-admin-1",
+        )
+
+        list_response = self.admin_client.get("/api/subscription/admin/payments/?status=pending")
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]["id"], pending_payment.id)
+        self.assertEqual(list_response.data[0]["user_email"], self.user.email)
+
+        update_response = self.admin_client.post(
+            f"/api/subscription/admin/payments/{pending_payment.id}/status/",
+            {"status": "paid"},
+            format="json",
+        )
+
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(update_response.data["status"], "paid")
+        self.assertEqual(update_response.data["provider_status"], "CONFIRMED")
+
+        pending_payment.refresh_from_db()
+        self.assertEqual(pending_payment.status, SubscriptionPayment.STATUS_PAID)
+        self.assertTrue(Subscription.objects.filter(user=self.user).exists())
+        self.assertTrue(
+            Notification.objects.filter(user=self.user, event_type=Notification.EVENT_PAYMENT_PAID).exists()
+        )
+
+    def test_admin_api_can_mark_payment_canceled(self):
+        payment = SubscriptionPayment.objects.create(
+            user=self.user,
+            plan_code="1m",
+            plan_name="1 месяц",
+            amount_rub=149,
+            duration_days=30,
+            max_devices=3,
+            provider=SubscriptionPayment.PROVIDER_PLATEGA,
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+            external_payment_id="manual-admin-2",
+            checkout_url="https://pay.platega.example/manual-admin-2",
+        )
+
+        response = self.admin_client.post(
+            f"/api/subscription/admin/payments/{payment.id}/status/",
+            {"status": "canceled"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "canceled")
+        self.assertEqual(response.data["provider_status"], "CANCELED")
+
+    def test_admin_payment_api_requires_staff_user(self):
+        payment = SubscriptionPayment.objects.create(
+            user=self.user,
+            plan_code="1m",
+            plan_name="1 месяц",
+            amount_rub=149,
+            duration_days=30,
+            max_devices=3,
+            provider=SubscriptionPayment.PROVIDER_PLATEGA,
+            payment_method="sbp",
+            status=SubscriptionPayment.STATUS_PENDING,
+        )
+
+        response = self.client.post(
+            f"/api/subscription/admin/payments/{payment.id}/status/",
+            {"status": "failed"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)

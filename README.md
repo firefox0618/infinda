@@ -53,8 +53,10 @@
 - API подписки теперь отдает явные состояния `none / trial / active / expired / pending_payment`, чтобы кабинет корректно показывал empty-state, ожидающую оплату и сценарий истекшего доступа без `404`.
 - Для подписок используется единый платежный сценарий через `Platega SBP`: `GET /api/subscription/plans/` отдает каталог тарифов, `POST /api/subscription/checkout/` создает платежную сессию, а webhook `POST /api/subscription/webhooks/platega/<secret>/` подтверждает оплату и активирует подписку.
 - Platega webhook теперь проходит через единый post-payment path: confirmed-платеж создает те же subscription-history и notifications, что и ручной paid-flow, а canceled callback предсказуемо переводит pending-платеж в `canceled`.
+- Для finance-оператора теперь также есть staff-only payment API: список последних платежей и явная ручная смена статуса `paid / canceled / failed`, чтобы операторский сценарий не зависел только от Django admin actions.
 - Public subscription surface теперь не ограничивается raw feed: `GET /api/subscription/public/<token>/summary/` отдает также install-guides по платформам и route-level client links, а `/sub/[token]` показывает quick-start, установку Happ и отдельные действия по маршрутам.
 - Для поддержки теперь используется единый backend-диалог: `GET /api/support/conversation/` отдает историю текущего обращения, а `POST /api/support/messages/` добавляет новое сообщение с вложениями.
+- Для операторов теперь есть и отдельный support API workflow поверх того же домена: staff может получить очередь диалогов, явно назначить тикет, ответить и закрыть его без обходных действий через сырой admin state.
 - Для Telegram linking теперь используется отдельный backend-контур: `GET/POST/DELETE /api/telegram/link/` управляет статусом привязки, deep-link токеном и отвязкой Telegram.
 - В backend добавлен отдельный домен `notifications` с Telegram-first dispatch для событий оплаты, revoke устройств, ответов поддержки и привязки Telegram.
 - Управляемые пользовательские маршруты больше не живут только как URL внутри подписки: они привязаны к отдельным сущностям `ConnectionRoute` и `Server`.

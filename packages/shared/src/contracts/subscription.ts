@@ -2,6 +2,8 @@ export const subscriptionApiPaths = {
   current: "subscription/",
   plans: "subscription/plans/",
   checkout: "subscription/checkout/",
+  adminPayments: "subscription/admin/payments/",
+  adminPaymentStatus: (paymentId: number) => `subscription/admin/payments/${paymentId}/status/`,
 } as const;
 
 export type SubscriptionStatusDto =
@@ -95,4 +97,24 @@ export type SubscriptionCheckoutDto = {
   provider: string;
   payment_method: string;
   plan_code: string;
+};
+
+export type OperatorSubscriptionPaymentDto = {
+  id: number;
+  user_email: string;
+  plan_code: string;
+  plan_name: string;
+  amount_rub: number;
+  status: string;
+  provider: string;
+  payment_method: string;
+  provider_status: string;
+  external_payment_id: string | null;
+  checkout_url: string;
+  created_at: string;
+  paid_at: string | null;
+};
+
+export type OperatorSubscriptionPaymentStatusRequestDto = {
+  status: "paid" | "canceled" | "failed";
 };

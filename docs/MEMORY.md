@@ -42,11 +42,13 @@
 - Кабинет должен уметь корректно жить и без подписки: subscription API теперь должен описывать состояния `none / trial / active / expired`, а не ломать UI через `404`.
 - Для paid-сценария теперь используется единый реальный платежный контур через `Platega SBP`: checkout создается на backend, а подтверждение идет через webhook и только потом активирует подписку.
 - Post-payment behavior для `Platega` теперь тоже выровнен: webhook больше не обходит общий `mark_subscription_payment_*` path, поэтому history events, notifications и cancel-flow ведут себя одинаково для ручного и callback-сценария.
+- Для operator-side billing minimum теперь также есть staff-only payment API: список последних платежей и ручные status actions `paid/canceled/failed`.
 - Локальное backend-окружение нужно считать валидным только после синхронизации `apps/api/.venv` через `pip install -r requirements.txt`; проверенный запуск и проверки выполняются через `apps/api/.venv/bin/python`.
 - В backend уже добавлены модули `profile` и `devices` с реальными endpoint-ами `GET/PATCH /api/profile/me/`, `GET /api/devices/`, `POST /api/devices/<id>/revoke/`.
 - В backend уже добавлен модуль `subscription` с реальным endpoint-ом `GET /api/subscription/`; вкладка `Подписка` в кабинете больше не живет только на моках.
 - `subscription` теперь также должен быть источником правды для истории оплат, истории продлений и состояния `pending_payment`.
 - В backend уже добавлен модуль `support` с endpoint-ами `GET /api/support/conversation/` и `POST /api/support/messages/`; пользовательский support-диалог и история сообщений больше не держатся только в frontend-state.
+- Support admin workflow теперь доступен не только из Django admin: staff API также умеет list queue, assign, reply и close для того же ticket-домена.
 - В backend уже добавлен модуль `telegram` с endpoint-ами `GET/POST/DELETE /api/telegram/link/` и `POST /api/telegram/link/confirm/`; кабинет теперь умеет готовить безопасный deep-link для привязки Telegram к web-аккаунту.
 - Для `telegram` теперь также добавлен отдельный backend runtime `./.venv/bin/python manage.py run_telegram_bot`: он подтверждает `start link_*` deep-link, принимает inbound сообщения/вложения из Telegram и передает их в существующий домен `support` без дублирования бизнес-логики.
 - Для доменных пользовательских событий теперь выделен отдельный модуль `notifications`; генерация уведомлений больше не должна размазываться по `support`, `telegram` и `subscription`.
@@ -70,6 +72,7 @@
 - Корневой `tests` пока все еще в основном пустой: системный и интеграционный слой поверх приложений еще не развернут.
 - Корневой `tests` уже начал превращаться в рабочий слой: в `tests/api` есть несколько repo-level backend-сценариев, а в `tests/web` уже поднят первый Playwright e2e-flow `register -> cabinet -> support message`.
 - Repo-level backend coverage теперь включает и public provisioning flow: отдельный сценарий проверяет `register -> public subscription touch -> provisioned summary/feed -> cabinet/access sync`.
+- Repo-level backend coverage теперь также включает операторский `support + payment` flow: пользователь создает тикет и pending-payment, оператор закрывает тикет и вручную активирует оплату, после чего пользователь видит closed conversation и active subscription.
 - Для `tests/web` теперь используется production-like запуск: wrapper `run_e2e.sh` поднимает стек, backend перед стартом применяет миграции, а frontend запускается через `next build + next start`, а не через нестабильный для e2e `next dev`.
 - Этот `tests/web` контур теперь подключен и в GitHub Actions: отдельный job ставит backend/frontend зависимости, Playwright browsers и запускает `npm run test:e2e`.
 - Backend app-level тесты проходят локально через `./.venv/bin/python manage.py test`; корневой `tests/` при этом все еще не развернут.

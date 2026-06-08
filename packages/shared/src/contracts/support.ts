@@ -1,6 +1,13 @@
 export const supportApiPaths = {
   conversation: "support/conversation/",
   messages: "support/messages/",
+  adminConversations: "support/admin/conversations/",
+  adminAssignConversation: (conversationId: number) =>
+    `support/admin/conversations/${conversationId}/assign/`,
+  adminReplyConversation: (conversationId: number) =>
+    `support/admin/conversations/${conversationId}/reply/`,
+  adminCloseConversation: (conversationId: number) =>
+    `support/admin/conversations/${conversationId}/close/`,
 } as const;
 
 export type SupportConversationStatusDto = "new" | "in_progress" | "closed";
@@ -36,3 +43,20 @@ export type SupportConversationDto = {
   messages: SupportMessageDto[];
 };
 
+export type OperatorSupportConversationDto = SupportConversationDto & {
+  user_id: number;
+  user_email: string;
+  user_display_name: string;
+  delivery_channel: "web" | "telegram_support_bot";
+  assigned_admin_id: number | null;
+  last_message_preview: string;
+};
+
+export type OperatorSupportAssignRequestDto = {
+  admin_user_id?: number;
+};
+
+export type OperatorSupportReplyRequestDto = {
+  text?: string;
+  close_after_reply?: boolean;
+};

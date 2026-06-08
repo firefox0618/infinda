@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    AdminSubscriptionPaymentListView,
+    AdminSubscriptionPaymentStatusView,
     CurrentSubscriptionView,
     PlategaWebhookView,
     PublicSubscriptionFeedView,
@@ -13,6 +15,12 @@ from .views import (
 
 urlpatterns = [
     path("", CurrentSubscriptionView.as_view(), name="subscription-current"),
+    path("admin/payments/", AdminSubscriptionPaymentListView.as_view(), name="subscription-admin-payments"),
+    path(
+        "admin/payments/<int:payment_id>/status/",
+        AdminSubscriptionPaymentStatusView.as_view(),
+        name="subscription-admin-payment-status",
+    ),
     path("public/<str:token>/feed/", PublicSubscriptionFeedView.as_view(), name="subscription-public-feed"),
     path("public/<str:token>/summary/", PublicSubscriptionSummaryView.as_view(), name="subscription-public-summary"),
     path("public/<str:token>/touch/", PublicSubscriptionTouchView.as_view(), name="subscription-public-touch"),

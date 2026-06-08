@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.authentication import TokenAuthentication
@@ -11,6 +12,8 @@ from apps.activity.services import get_request_device_key, get_request_ip
 from apps.devices.services import PublicDeviceTouchError
 
 from .serializers import (
+    OperatorSubscriptionPaymentSerializer,
+    OperatorSubscriptionPaymentStatusSerializer,
     PublicSubscriptionTouchRequestSerializer,
     PublicSubscriptionTouchResponseSerializer,
     SubscriptionCheckoutSerializer,
@@ -27,8 +30,12 @@ from .services import (
     get_public_subscription_by_token,
     get_user_subscription,
     list_subscription_plans,
+    mark_subscription_payment_canceled,
+    mark_subscription_payment_failed,
+    mark_subscription_payment_paid,
     touch_public_subscription,
 )
+from .models import SubscriptionPayment
 
 
 class CurrentSubscriptionView(APIView):
@@ -82,6 +89,45 @@ class SubscriptionCheckoutView(APIView):
                     "plan_code": payment.plan_code,
                 }
             ).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminSubscriptionPaymentListView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        queryset = SubscriptionPayment.objects.select_related("user").order_by("-created_at", "-id")
+        requested_status = str(request.query_params.get("status", "")).strip()
+        if requested_status:
+            queryset = queryset.filter(status=requested_status)
+        return Response(
+            OperatorSubscriptionPaymentSerializer(queryset[:100], many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminSubscriptionPaymentStatusView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, payment_id: int):
+        payment = get_object_or_404(
+            SubscriptionPayment.objects.select_related("user"),
+            pk=payment_id,
+        )
+        serializer = OperatorSubscriptionPaymentStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        requested_status = serializer.validated_data["status"]
+        if requested_status == SubscriptionPayment.STATUS_PAID:
+            payment = mark_subscription_payment_paid(payment=payment)
+        elif requested_status == SubscriptionPayment.STATUS_CANCELED:
+            payment = mark_subscription_payment_canceled(payment=payment)
+        else:
+            payment = mark_subscription_payment_failed(payment=payment)
+        return Response(
+            OperatorSubscriptionPaymentSerializer(payment).data,
             status=status.HTTP_200_OK,
         )
 

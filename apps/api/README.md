@@ -74,11 +74,17 @@ docker compose -f infra/docker-compose.local.yml up --build
 - `GET /api/subscription/plans/`
 - `POST /api/subscription/checkout/`
 - `POST /api/subscription/webhooks/platega/<secret>/`
+- `GET /api/subscription/admin/payments/`
+- `POST /api/subscription/admin/payments/<id>/status/`
 - `GET /api/subscription/public/<token>/feed/`
 - `GET /api/subscription/public/<token>/summary/`
 - `POST /api/subscription/public/<token>/touch/`
 - `GET /api/support/conversation/`
 - `POST /api/support/messages/`
+- `GET /api/support/admin/conversations/`
+- `POST /api/support/admin/conversations/<id>/assign/`
+- `POST /api/support/admin/conversations/<id>/reply/`
+- `POST /api/support/admin/conversations/<id>/close/`
 - `GET /api/telegram/link/`
 - `POST /api/telegram/link/`
 - `POST /api/telegram/link/confirm/`

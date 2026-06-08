@@ -52,6 +52,28 @@ class SubscriptionPaymentHistorySerializer(serializers.ModelSerializer):
         )
 
 
+class OperatorSubscriptionPaymentSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta:
+        model = SubscriptionPayment
+        fields = (
+            "id",
+            "user_email",
+            "plan_code",
+            "plan_name",
+            "amount_rub",
+            "status",
+            "provider",
+            "payment_method",
+            "provider_status",
+            "external_payment_id",
+            "checkout_url",
+            "created_at",
+            "paid_at",
+        )
+
+
 class SubscriptionHistoryEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubscriptionHistoryEvent
@@ -163,6 +185,10 @@ class SubscriptionCheckoutSerializer(serializers.Serializer):
     provider = serializers.CharField()
     payment_method = serializers.CharField()
     plan_code = serializers.CharField()
+
+
+class OperatorSubscriptionPaymentStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=("paid", "canceled", "failed"))
 
 
 class PublicSubscriptionActionLinkSerializer(serializers.Serializer):

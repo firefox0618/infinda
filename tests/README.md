@@ -9,6 +9,7 @@
 - базовая структура `tests/api` и `tests/web` уже заведена;
 - в `tests/api` уже есть несколько сквозных backend-сценариев;
 - в `tests/api` уже есть отдельный сценарий для `public subscription -> touch -> provisioning -> cabinet/access`;
+- в `tests/api` теперь есть и операторский сценарий `support + pending payment -> operator workflow -> active subscription`;
 - в `tests/web` уже есть первый реальный Playwright-сценарий `test_auth_to_support.spec.ts`.
 
 Планируемое наполнение:

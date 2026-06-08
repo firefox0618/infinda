@@ -17,3 +17,4 @@
 - `test_telegram_support_flow.py` — проверяет цепочку `telegram link -> support message -> admin reply -> close conversation`.
 - `test_subscription_checkout_flow.py` — проверяет цепочку `checkout -> webhook -> activation`.
 - `test_public_subscription_flow.py` — проверяет цепочку `register -> public /sub token -> touch -> provisioned summary/feed -> cabinet/access sync`.
+- `test_operator_support_payment_flow.py` — проверяет цепочку `user support + pending payment -> operator assign/reply/close -> operator mark paid -> user sees closed ticket and active subscription`.
