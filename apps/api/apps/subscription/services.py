@@ -1,13 +1,20 @@
 from datetime import timedelta
+from secrets import token_urlsafe
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ValidationError
 
+from apps.activity.models import UserActivity
+from apps.activity.services import log_user_activity
+from apps.devices.models import Device
+from apps.devices.services import PublicDeviceTouchError, touch_public_subscription_device
 from apps.notifications.services import dispatch_notification
+from apps.provisioning.services import schedule_device_repair
 from apps.routing.services import ensure_default_route_catalog, get_connection_route_by_code
 
+from .link_builders import build_public_subscription_page_url
 from .models import (
     Subscription,
     SubscriptionHistoryEvent,
@@ -164,8 +171,212 @@ def has_pending_subscription_payment(*, user) -> bool:
     return get_latest_pending_subscription_payment(user=user) is not None
 
 
-def build_subscription_main_url(*, user, plan_code: str) -> str:
-    return f"https://infinda.com/sub/{plan_code}-{user.pk}"
+def build_public_subscription_token() -> str:
+    return token_urlsafe(24)
+
+
+def build_public_subscription_url(*, token: str) -> str:
+    return build_public_subscription_page_url(token=token)
+
+
+def create_unique_public_subscription_token() -> str:
+    token = build_public_subscription_token()
+    while Subscription.objects.filter(public_token=token).exists():
+        token = build_public_subscription_token()
+    return token
+
+
+def get_public_subscription_by_token(*, token: str) -> Subscription | None:
+    return (
+        Subscription.objects.prefetch_related("routes")
+        .select_related("user")
+        .filter(public_token=token)
+        .first()
+    )
+
+
+def resolve_subscription_device_by_request_ip(
+    *,
+    subscription: Subscription,
+    request_ip: str | None,
+    request_device_key: str | None = None,
+) -> Device | None:
+    if request_device_key:
+        matched_by_key = (
+            Device.objects.filter(
+                user=subscription.user,
+                revoked_at__isnull=True,
+                public_device_key=request_device_key,
+            )
+            .order_by("-last_seen", "-created_at")
+            .first()
+        )
+        if matched_by_key is not None:
+            return matched_by_key
+    if not request_ip:
+        return None
+    return (
+        Device.objects.filter(
+            user=subscription.user,
+            revoked_at__isnull=True,
+            ip_address=request_ip,
+        )
+        .order_by("-last_seen", "-created_at")
+        .first()
+    )
+
+
+def build_subscription_route_access_snapshot(
+    *,
+    subscription: Subscription,
+    request_ip: str | None = None,
+    request_device_key: str | None = None,
+) -> dict:
+    from apps.provisioning.models import ProvisionedDeviceAccess
+
+    resolved_device = resolve_subscription_device_by_request_ip(
+        subscription=subscription,
+        request_ip=request_ip,
+        request_device_key=request_device_key,
+    )
+    route_items = list(
+        subscription.routes.select_related("connection_route__location", "connection_route__server")
+        .order_by("position", "id")
+    )
+    binding_by_route_id: dict[int, ProvisionedDeviceAccess] = {}
+    if resolved_device is not None:
+        active_bindings = (
+            ProvisionedDeviceAccess.objects.select_related("route")
+            .filter(
+                subscription=subscription,
+                device=resolved_device,
+                status=ProvisionedDeviceAccess.Status.ACTIVE,
+                revoked_at__isnull=True,
+            )
+            .exclude(connection_url="")
+            .order_by("route_id", "-last_synced_at", "-id")
+        )
+        for binding in active_bindings:
+            binding_by_route_id.setdefault(binding.route_id, binding)
+
+    routes_payload: list[dict] = []
+    provisioned_route_count = 0
+    for route in route_items:
+        binding = (
+            binding_by_route_id.get(route.connection_route_id)
+            if route.connection_route_id is not None
+            else None
+        )
+        if binding is not None and binding.connection_url:
+            resolved_url = binding.connection_url
+            is_provisioned = True
+            provisioned_route_count += 1
+        elif route.connection_route_id is not None:
+            resolved_url = route.connection_route.endpoint_url
+            is_provisioned = False
+        else:
+            resolved_url = route.url
+            is_provisioned = False
+
+        routes_payload.append(
+            {
+                "code": route.code,
+                "label": route.connection_route.location.name if route.connection_route_id is not None else route.label,
+                "url": resolved_url,
+                "is_provisioned": is_provisioned,
+            }
+        )
+
+    return {
+        "resolved_device": resolved_device,
+        "routes": routes_payload,
+        "uses_provisioned_access": provisioned_route_count > 0,
+        "provisioned_route_count": provisioned_route_count,
+    }
+
+
+def build_public_subscription_feed(
+    *,
+    subscription: Subscription,
+    request_ip: str | None = None,
+    request_device_key: str | None = None,
+) -> str:
+    snapshot = build_subscription_route_access_snapshot(
+        subscription=subscription,
+        request_ip=request_ip,
+        request_device_key=request_device_key,
+    )
+    route_urls = [route["url"] for route in snapshot["routes"]]
+
+    return "\n".join(route_urls) + ("\n" if route_urls else "")
+
+
+def touch_public_subscription(
+    *,
+    subscription: Subscription,
+    request_ip: str | None,
+    request_device_key: str | None,
+    device_name: str = "",
+    platform_name: str = "",
+    client_name: str = "",
+    icon: str = "",
+    user_agent: str = "",
+) -> dict:
+    subscription_status = get_subscription_status(subscription=subscription, user=subscription.user)
+    if subscription_status not in {SUBSCRIPTION_STATUS_TRIAL, SUBSCRIPTION_STATUS_ACTIVE}:
+        raise PublicDeviceTouchError(
+            code="SUBSCRIPTION_INACTIVE",
+            message="Subscription is not active for device binding.",
+            details={"status": subscription_status},
+        )
+
+    device, created = touch_public_subscription_device(
+        subscription=subscription,
+        request_ip=request_ip,
+        device_key=request_device_key or "",
+        device_name=device_name,
+        platform_name=platform_name,
+        client_name=client_name,
+        icon=icon,
+    )
+    operations = schedule_device_repair(
+        subscription=subscription,
+        device=device,
+        reason="public-subscription-touch",
+    )
+    failed_operation_count = len(
+        [item for item in operations if item.status == item.Status.FAILED]
+    )
+    log_user_activity(
+        user=subscription.user,
+        action=UserActivity.Action.PUBLIC_SUBSCRIPTION_TOUCHED,
+        description=f"Публичная страница подписки привязала устройство {device.name}.",
+        ip_address=request_ip,
+        metadata={
+            "subscription_id": subscription.id,
+            "public_token": subscription.public_token,
+            "device_id": device.id,
+            "device_name": device.resolved_display_name,
+            "device_created": created,
+            "device_key_present": bool(request_device_key),
+            "scheduled_operation_count": len(operations),
+            "failed_operation_count": failed_operation_count,
+            "user_agent": user_agent,
+        },
+    )
+    return {
+        "ok": True,
+        "created": created,
+        "scheduled_operation_count": len(operations),
+        "failed_operation_count": failed_operation_count,
+        "device": {
+            "id": device.id,
+            "display_name": device.resolved_display_name,
+            "platform": device.resolved_platform,
+            "client": device.resolved_client,
+            "ip": device.ip_address,
+        },
+    }
 
 
 def ensure_subscription_routes(*, subscription: Subscription, plan_code: str) -> None:
@@ -204,6 +415,7 @@ def ensure_subscription_routes(*, subscription: Subscription, plan_code: str) ->
 
 def create_trial_subscription(*, user):
     ensure_default_route_catalog()
+    public_token = create_unique_public_subscription_token()
     subscription, created = Subscription.objects.get_or_create(
         user=user,
         defaults={
@@ -211,7 +423,8 @@ def create_trial_subscription(*, user):
             "starts_at": timezone.localdate(),
             "ends_at": timezone.localdate() + timedelta(days=TRIAL_SUBSCRIPTION_DAYS),
             "max_devices": TRIAL_MAX_DEVICES,
-            "main_url": f"https://infinda.com/sub/trial-{user.pk}",
+            "public_token": public_token,
+            "main_url": build_public_subscription_url(token=public_token),
         },
     )
 
@@ -238,6 +451,13 @@ def create_trial_subscription(*, user):
             starts_at=subscription.starts_at,
             ends_at=subscription.ends_at,
         )
+        from apps.provisioning.models import ProvisioningOperation
+        from apps.provisioning.services import schedule_subscription_sync
+
+        schedule_subscription_sync(
+            subscription=subscription,
+            trigger=ProvisioningOperation.Trigger.TRIAL_STARTED,
+        )
 
     return subscription
 
@@ -249,13 +469,15 @@ def activate_subscription_plan(*, user, plan_code: str) -> Subscription:
 
     previous_ends_at = subscription.ends_at if subscription is not None else None
     if subscription is None:
+        public_token = create_unique_public_subscription_token()
         subscription = Subscription.objects.create(
             user=user,
             plan_name=plan["title"],
             starts_at=today,
             ends_at=today + timedelta(days=plan["duration_days"]),
             max_devices=plan["max_devices"],
-            main_url=build_subscription_main_url(user=user, plan_code=plan_code),
+            public_token=public_token,
+            main_url=build_public_subscription_url(token=public_token),
         )
     else:
         renewal_base = subscription.ends_at if subscription.ends_at >= today else today
@@ -263,13 +485,16 @@ def activate_subscription_plan(*, user, plan_code: str) -> Subscription:
         subscription.starts_at = today
         subscription.ends_at = renewal_base + timedelta(days=plan["duration_days"])
         subscription.max_devices = plan["max_devices"]
-        subscription.main_url = build_subscription_main_url(user=user, plan_code=plan_code)
+        if not subscription.public_token:
+            subscription.public_token = create_unique_public_subscription_token()
+        subscription.main_url = build_public_subscription_url(token=subscription.public_token)
         subscription.save(
             update_fields=[
                 "plan_name",
                 "starts_at",
                 "ends_at",
                 "max_devices",
+                "public_token",
                 "main_url",
                 "updated_at",
             ]
@@ -277,6 +502,13 @@ def activate_subscription_plan(*, user, plan_code: str) -> Subscription:
 
     ensure_subscription_routes(subscription=subscription, plan_code=plan_code)
     subscription.refresh_from_db()
+    from apps.provisioning.models import ProvisioningOperation
+    from apps.provisioning.services import schedule_subscription_sync
+
+    schedule_subscription_sync(
+        subscription=subscription,
+        trigger=ProvisioningOperation.Trigger.SUBSCRIPTION_ACTIVATED,
+    )
     return subscription
 
 

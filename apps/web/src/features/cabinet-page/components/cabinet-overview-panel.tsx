@@ -24,6 +24,7 @@ type CabinetOverviewPanelProps = {
   devices: readonly CabinetDevice[];
   copyLabel: string;
   onCopyMainLink: () => void;
+  onSyncAccess: () => void;
   onOpenRenew: () => void;
   onOpenTab: (tab: Extract<CabinetTab, "subscription" | "devices" | "support">) => void;
 };
@@ -53,6 +54,7 @@ export function CabinetOverviewPanel({
   devices,
   copyLabel,
   onCopyMainLink,
+  onSyncAccess,
   onOpenRenew,
   onOpenTab,
 }: CabinetOverviewPanelProps) {
@@ -222,6 +224,30 @@ export function CabinetOverviewPanel({
           </div>
 
           <div className={styles.panelBody}>
+            {accessState && accessState.provisioningIssueCount > 0 ? (
+              <div className={styles.provisioningAlert}>
+                <strong>Есть проблемы с provisioning</strong>
+                <p>
+                  Ошибок: {accessState.provisioningIssueCount}. Коды:{" "}
+                  {accessState.lastProvisioningErrorCodes.join(", ") || "неизвестно"}.
+                </p>
+                <p>
+                  Активных bindings: {accessState.activeProvisionedBindingCount}, проблемных:{" "}
+                  {accessState.errorProvisionedBindingCount}.
+                </p>
+                <p>
+                  Runtime unhealthy servers: {accessState.unhealthyProvisioningServerCount}, degraded:{" "}
+                  {accessState.degradedProvisioningServerCount}.
+                </p>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={onSyncAccess}
+                >
+                  Пересинхронизировать доступ
+                </button>
+              </div>
+            ) : null}
             <div className={styles.quickActionList}>
               {quickActions.map((action) => (
                 <button
@@ -285,11 +311,15 @@ export function CabinetOverviewPanel({
               </div>
               <div className={styles.statusRow}>
                 <span>Личный кабинет</span>
-                <strong>online</strong>
+                <strong className={`${styles.statusValue} ${styles.statusValueActive}`}>
+                  online
+                </strong>
               </div>
               <div className={styles.statusRow}>
                 <span>Поддержка</span>
-                <strong>online</strong>
+                <strong className={`${styles.statusValue} ${styles.statusValueActive}`}>
+                  online
+                </strong>
               </div>
               <div className={styles.statusRow}>
                 <span>Устройства</span>

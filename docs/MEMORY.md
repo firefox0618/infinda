@@ -7,6 +7,24 @@
 - Проект `INFINDA` начинается с набора HTML-макетов.
 - Визуальные макеты находятся в каталоге `шаблоны и работа/`.
 - `apps/web` на `Next.js` и `apps/api` на `Django + DRF` уже инициализированы.
+- На `Phase 00` зафиксирована целевая постановка: `INFINDA` должна заменить `Amonora` полностью, а не только как web-кабинет.
+- Целевой продукт должен быть полноценным и как web-платформа, и как Telegram-контур.
+- Для замены `Amonora` заведен отдельный baseline-документ `docs/PHASE_00_AMONORA_REPLACEMENT_PLAN.md` с parity matrix, P0-блокерами и очередностью этапов.
+- В `Phase 1` начат `runtime foundation`: backend теперь умеет работать с `PostgreSQL`, а в `infra/` появился первый локальный docker-compose стек `postgres + api + web + telegram-bot`.
+- В `Phase 1` также появились первые server-run шаблоны: единый env-файл, `systemd`-юниты и `nginx`-конфиг.
+- Для `runtime foundation` теперь также есть отдельный `infra/RUNTIME_RUNBOOK.md`: установка, обновление и простая smoke-проверка.
+- В `Phase 2` начат `public access`: в модели подписки появился безопасный `public_token`, а первый публичный client-surface теперь строится вокруг `/sub/[token]` и backend summary endpoint.
+- Для `Phase 2` генерацию подписочных ссылок нужно дальше считать отдельным слоем: page/feed/Happ/generic client links больше не должны собираться прямо во frontend строковыми склейками.
+- Публичный client-surface теперь также начинает закрывать install-flow: backend summary для `/sub/[token]` отдает platform install-guides для Happ, а frontend показывает quick-start действия, установку клиента и route-level import actions по странам.
+- Для `Phase 2` теперь начат и provisioning foundation: в backend появился отдельный домен `provisioning` с профилями серверов и журналом операций `sync/revoke`, а trial/activation подписки и revoke устройства уже запускают эти операции явно.
+- Поверх provisioning foundation уже добавлен следующий lifecycle-batch: кабинет видит provisioning issue summary через `access-state`, пользователь может вручную запустить `sync access`, а для устройства теперь есть отдельный repair-flow с трассируемыми provisioning-операциями.
+- Следующий подслой `Phase 2` тоже уже начат: provisioning больше не ограничен только mock-результатом, в домене появился adapter layer `mock/manual/xui`, а `xui` уже умеет проверять реальную панель и inbound по конфигу `ServerProvisioningProfile`.
+- Поверх этого слоя теперь уже есть materialized provisioning state: `ProvisionedDeviceAccess` хранит binding `device + route + server` с внешним `client_uuid/email`, `inbound_id`, status и metadata, а `sync/repair/revoke` меняют не только operation log, но и реальное состояние выданного доступа.
+- Следующий пользовательский шаг этого подслоя тоже уже начат: cabinet subscription API, public summary `/sub/[token]` и raw feed теперь умеют предпочитать provisioned route credentials для устройства, распознанного по IP, а без такого binding мягко деградируют к fallback URL.
+- Следующий кусок public parity теперь тоже закрыт частично: `touch` endpoint перестал быть заглушкой, создает или обновляет устройство по IP и public device-context, запускает provisioning repair и журналируется как отдельное user activity событие.
+- Для web-public surface теперь также нужен BFF-путь, а не только direct SSR fetch: `/sub/[token]` после загрузки делает browser-side `touch` и browser-aware `summary`, чтобы backend видел реальный IP клиента, а не только адрес сервера Next.
+- Runtime heartbeat для `Approach 1` теперь тоже доведен до рабочего слоя: adapters умеют active health check, backend сохраняет `ServerStatusSnapshot`, `/api/health/` отдает runtime summary, а для ops есть явная команда `check_provisioning_servers`.
+- После review-fix public binding слой усилен: device identity теперь использует persistent `device_key` поверх BFF/headers, `touch` выровнен по единому API error-contract, а старый provisioning `execute()` path убран как мертвая ветка рядом с новым binding lifecycle.
 - Текущий технический статус: базовый каркас уже пройден, собраны основные frontend-маршруты, BFF/proxy-слой и несколько backend-доменов с тестами.
 - Для frontend уже вынесен общий layout-слой с `header` и `footer`, чтобы изменения этих блоков применялись ко всем страницам сразу.
 - Для frontend уже добавлен общий механизм reveal-on-scroll для анимации блоков при прокрутке.
@@ -50,6 +68,7 @@
 - Корневой `.env` проекта теперь должен оставаться чистым и содержать только актуальные переменные `INFINDA`; старый env от `Amonora` вынесен в `шаблоны и работа/amonora.legacy.env` как reference-источник.
 - Корневой `tests` пока все еще в основном пустой: системный и интеграционный слой поверх приложений еще не развернут.
 - Корневой `tests` уже начал превращаться в рабочий слой: в `tests/api` есть несколько repo-level backend-сценариев, а в `tests/web` уже поднят первый Playwright e2e-flow `register -> cabinet -> support message`.
+- Repo-level backend coverage теперь включает и public provisioning flow: отдельный сценарий проверяет `register -> public subscription touch -> provisioned summary/feed -> cabinet/access sync`.
 - Для `tests/web` теперь используется production-like запуск: wrapper `run_e2e.sh` поднимает стек, backend перед стартом применяет миграции, а frontend запускается через `next build + next start`, а не через нестабильный для e2e `next dev`.
 - Этот `tests/web` контур теперь подключен и в GitHub Actions: отдельный job ставит backend/frontend зависимости, Playwright browsers и запускает `npm run test:e2e`.
 - Backend app-level тесты проходят локально через `./.venv/bin/python manage.py test`; корневой `tests/` при этом все еще не развернут.
@@ -66,9 +85,25 @@
 - `Telegram`, `Аудит` и `Профили` больше не претендуют на верхний уровень админки и остаются secondary-слоем внутри workspace `Пользователи` и sidebar-навигации.
 - Login-экран админки дополнительно отполирован: собственный loader, show/hide password, switch темы и более аккуратное клиентское поведение формы до и после попытки входа.
 - Левое меню админки уже переведено на более широкий collapsible sidebar с раскрывающимися секциями приложений и локальным запоминанием состояния скрытия.
+- Для миграции данных Amonora в локальном PostgreSQL уже поднята отдельная restore-копия `infinda_amonora_restore`, восстановленная из дампа `/opt/amonora_bot/backups/core-pg/2026-06-07_09-00/amonora_db_2026-06-07_09-00.sql.gz`.
+- Эта база используется как промежуточный source-of-truth для последующего ETL в схему `INFINDA` и не заменяет текущую Django БД `apps/api`.
+- Первый реальный перенос данных теперь идет через `manage.py import_amonora_users`: он создает в `INFINDA` технические аккаунты пользователей из старой БД, а также их Telegram-привязки и профили.
+- Следующий шаг переноса — `manage.py import_amonora_subscriptions`: он создает в `INFINDA` реальные подписки для импортированных пользователей, чтобы статус доступа уже жил в новой системе.
+- На текущий момент в `INFINDA` уже перенесены 1796 пользователей, 1796 профилей, 1796 Telegram-привязок и 121 подписка из `Amonora`; даты подписок сохранены по legacy-данным.
+- Следующий шаг после подписок — `manage.py import_amonora_payments`: он переносит только поддерживаемые legacy-платежи за тарифы, а `balance_topup` и `device_slot_addon` пока сознательно пропускает, потому что под них еще нет отдельной сущности в `INFINDA`.
+- На текущий момент в `INFINDA` уже перенесены 1796 пользователей, 1796 профилей, 1796 Telegram-привязок, 121 подписка и 331 платеж из `Amonora`; неподдерживаемые `balance_topup` и `device_slot_addon` пока не импортировались.
+- Следующий шаг после платежей — `manage.py import_amonora_support`: он переносит тикеты, сообщения, вложения и support-статусы; для legacy-админов создаются отдельные технические аккаунты, чтобы сохранить назначение тикетов.
+- `import_amonora_users` переиспользует уже существующий `TelegramAccountLink`, если локальный `telegram_user_id` уже занят тестовой записью, чтобы импорт не падал на уникальном ограничении.
+- На текущий момент в локальной `INFINDA` уже импортированы 1796 legacy-пользователей, 121 подписка, 331 платеж и 83 support-диалога; support переносит 547 сообщений и 71 вложение, а оставшиеся 2 тикета пока не сматчились по локальным user-link связям.
+- `import_amonora_devices` переносит 50 legacy `vpn_clients` в `Device`, используя `client_uuid` как внутренний ключ записи и `client_data.device_name` как отображаемое имя устройства.
+- На текущий момент в локальной `INFINDA` уже импортированы 1796 legacy-пользователей, 121 подписка, 331 платеж, 83 support-диалога и 50 устройств; support переносит 547 сообщений и 71 вложение, а `devices` сейчас привязаны к imported users через технический `amonora-<legacy_id>` ключ.
+- `import_amonora_device_slot_entitlements` переносит 26 legacy device-slot records в `UserActivity` и поднимает `Subscription.max_devices` для активных entitlements; на текущий момент лимиты обновлены у 5 подписок.
+- `import_amonora_vpn_repair_events` переносит 78 legacy repair-events в `UserActivity` с сохранением `result` и `reason`.
+- На текущий момент в локальной `INFINDA` уже импортированы 1796 legacy-пользователей, 121 подписка, 331 платеж, 83 support-диалога, 50 устройств, 26 device-slot events и 78 VPN repair-events; активные entitlement-слоты подняли лимиты у 5 подписок.
 
 Что уже решено:
-- Начинаем с этапа 1: каркас и планировка.
+- Начинаем с этапа 0: baseline замены `Amonora -> INFINDA`.
+- После `Phase 00` следующая реализация должна идти не хаотично, а по этапам `runtime foundation -> public access/provisioning -> telegram parity -> billing/support parity -> backoffice/cutover`.
 - Сразу ведем документацию внутри репозитория.
 - Единый источник постоянных правил проекта, требований к качеству кода, архитектуре, проверкам и отчетности: `AGENTS.md`.
 - Для новых задач используется единый шаблон планирования: `docs/TASK_PLAN_TEMPLATE.md`.
@@ -88,8 +123,8 @@
 - Общие контракты уже начали выноситься в `packages/shared`, но backend пока использует их не как runtime-зависимость, а как согласованный reference-слой, закрепленный тестами.
 - При переносе существующей серверной БД на новую схему нельзя делать ручной импорт поверх таблиц: сначала backup, затем deploy кода, затем `manage.py migrate`, потому что backfill маршрутов и серверов уже зашит в миграции.
 
-Следующий шаг после этапа 1:
-- Дорабатывать перенесенные страницы и вычищать общий frontend-слой под следующие этапы логики.
-- Расширять backend-домены и стыковку cabinet/support/payment-сценариев.
-- Развивать двусторонний Telegram support-сценарий дальше уже поверх существующего runtime, а не через отдельную параллельную реализацию.
-- Расширять покрытие `packages/shared` и добавлять контрактные/интеграционные проверки поверх него.
+Следующий шаг после этапа 0:
+- Внутри текущего `Approach 1` перевести public/feed/cabinet surface на реальные provisioned route credentials, а не только на статические `endpoint_url`.
+- После этого добавить server heartbeat/availability sync, чтобы `repair/sync` опирались не только на конфиг профиля, но и на живое состояние runtime-ноды.
+- Telegram-контур дальше развивать как полноценный продуктовый runtime, а не только как linking/support addon.
+- Расширять покрытие `packages/shared` и добавлять интеграционные проверки уже под целевую parity-модель.

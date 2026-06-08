@@ -48,3 +48,13 @@ class DeviceSerializer(serializers.ModelSerializer):
 
 class DeviceRevokeSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class DeviceRepairSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class DeviceRepairResponseSerializer(serializers.Serializer):
+    device = DeviceSerializer()
+    scheduled_operation_count = serializers.IntegerField()
+    failed_operation_count = serializers.IntegerField()

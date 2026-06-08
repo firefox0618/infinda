@@ -786,6 +786,7 @@
 .primaryButton,
 .secondaryButton,
 .countryButton,
+.repairInlineButton,
 .revokeInlineButton {
   min-height: 48px;
   padding: 0 18px;
@@ -1004,10 +1005,57 @@
   gap: 10px;
 }
 
+.subscriptionClientGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.subscriptionClientLink {
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.045);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  transition: 0.18s ease;
+}
+
+.subscriptionClientLink:hover {
+  border-color: rgba(87, 184, 255, 0.35);
+  background: rgba(255, 255, 255, 0.075);
+  transform: translateY(-1px);
+}
+
+.subscriptionClientLinkPrimary {
+  border-color: rgba(85, 229, 154, 0.28);
+  background: linear-gradient(135deg, rgba(85, 229, 154, 0.16), rgba(126, 245, 180, 0.12));
+}
+
+.subscriptionClientLinkMuted {
+  color: #cce7ff;
+  background: rgba(87, 184, 255, 0.08);
+  border-color: rgba(87, 184, 255, 0.18);
+}
+
 .subscriptionBlockLabel {
   color: #9ca3af;
   font-size: 12px;
   font-weight: 700;
+}
+
+.subscriptionHint {
+  margin-top: 0.75rem;
+  color: #c7d3e4;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .countryButtons {
@@ -1254,6 +1302,12 @@
   margin-top: 14px;
 }
 
+.deviceInlineActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .revokeReasonLabel {
   display: grid;
   gap: 8px;
@@ -1274,6 +1328,30 @@
   color: rgba(219, 229, 255, 0.72);
   font-size: 13px;
   margin-top: 12px;
+}
+
+.repairInlineButton {
+  border: 1px solid rgba(126, 245, 180, 0.26);
+  background: rgba(126, 245, 180, 0.08);
+  color: #dffff0;
+}
+
+.provisioningAlert {
+  margin-bottom: 18px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 196, 87, 0.22);
+  background: rgba(255, 196, 87, 0.08);
+}
+
+.provisioningAlert strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.provisioningAlert p {
+  margin: 0 0 12px;
+  color: rgba(255, 244, 214, 0.82);
 }
 
 .emptyState {

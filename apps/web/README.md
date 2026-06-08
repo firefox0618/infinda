@@ -10,6 +10,12 @@ Frontend-приложение проекта `INFINDA` на `Next.js`.
 - `npm run typecheck`
 - `npm run build`
 
+## Env
+
+- для standalone-локального запуска frontend использует `apps/web/.env.example`;
+- базовая переменная: `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/`;
+- внутри docker-compose foundation-стека backend URL переопределяется на внутренний host `api`.
+
 ## Структура
 
 - `src/app` — маршруты и layout.
@@ -27,6 +33,8 @@ Frontend-приложение проекта `INFINDA` на `Next.js`.
 - Auth и часть cabinet-сценариев уже работают через локальный `Django + DRF` backend.
 - Cabinet уже использует backend-данные по устройствам и подписке: история оплат, история продлений, `pending_payment`, единый `access-state` и revoke-flow с причиной.
 - Transport DTO и endpoint-paths для `auth/profile/devices/subscription/support/telegram/access` подключены из `packages/shared`.
+- Для этапа `public access` добавлена первая публичная surface-страница `/sub/[token]`, которая показывает summary подписки без входа в кабинет.
+- Для публичной подписки также добавлены `/sub/[token]/feed` и `/happ/add?sub=...` как базовый foundation для client-flow.
 
 ## Ограничения текущего этапа
 

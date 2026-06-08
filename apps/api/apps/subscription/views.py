@@ -3,21 +3,31 @@ from rest_framework import permissions, status
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import ValidationError
+from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.activity.services import get_request_device_key, get_request_ip
+from apps.devices.services import PublicDeviceTouchError
+
 from .serializers import (
+    PublicSubscriptionTouchRequestSerializer,
+    PublicSubscriptionTouchResponseSerializer,
     SubscriptionCheckoutSerializer,
     SubscriptionCheckoutRequestSerializer,
     SubscriptionPlanSerializer,
+    serialize_public_subscription_summary,
     serialize_subscription,
 )
 from .platega import PlategaClient, PlategaError
 from .services import (
+    build_public_subscription_feed,
     confirm_subscription_payment_from_platega,
     create_subscription_checkout,
+    get_public_subscription_by_token,
     get_user_subscription,
     list_subscription_plans,
+    touch_public_subscription,
 )
 
 
@@ -28,7 +38,12 @@ class CurrentSubscriptionView(APIView):
     def get(self, request):
         subscription = get_user_subscription(user=request.user)
         return Response(
-            serialize_subscription(subscription=subscription, user=request.user),
+            serialize_subscription(
+                subscription=subscription,
+                user=request.user,
+                request_ip=get_request_ip(request),
+                request_device_key=get_request_device_key(request),
+            ),
             status=status.HTTP_200_OK,
         )
 
@@ -123,5 +138,102 @@ class PlategaWebhookView(APIView):
                 "payment_status": payment.status,
                 "provider_status": payment.provider_status,
             },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PublicSubscriptionSummaryView(APIView):
+    authentication_classes = [DisableAuthentication]
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, token: str):
+        subscription = get_public_subscription_by_token(token=token)
+        if subscription is None:
+            return Response(
+                {
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Subscription not found.",
+                        "details": {},
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            serialize_public_subscription_summary(
+                subscription=subscription,
+                request_ip=get_request_ip(request),
+                request_device_key=get_request_device_key(request),
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+class PublicSubscriptionFeedView(APIView):
+    authentication_classes = [DisableAuthentication]
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, token: str):
+        subscription = get_public_subscription_by_token(token=token)
+        if subscription is None:
+            return HttpResponse("Not Found", status=status.HTTP_404_NOT_FOUND, content_type="text/plain")
+
+        return HttpResponse(
+            build_public_subscription_feed(
+                subscription=subscription,
+                request_ip=get_request_ip(request),
+                request_device_key=get_request_device_key(request),
+            ),
+            status=status.HTTP_200_OK,
+            content_type="text/plain; charset=utf-8",
+        )
+
+
+class PublicSubscriptionTouchView(APIView):
+    authentication_classes = [DisableAuthentication]
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, token: str):
+        subscription = get_public_subscription_by_token(token=token)
+        if subscription is None:
+            return Response(
+                {
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Subscription not found.",
+                        "details": {},
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = PublicSubscriptionTouchRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            payload = touch_public_subscription(
+                subscription=subscription,
+                request_ip=get_request_ip(request),
+                request_device_key=get_request_device_key(request),
+                device_name=serializer.validated_data.get("device_name", ""),
+                platform_name=serializer.validated_data.get("platform", ""),
+                client_name=serializer.validated_data.get("client", ""),
+                icon=serializer.validated_data.get("icon", ""),
+                user_agent=request.headers.get("User-Agent", ""),
+            )
+        except PublicDeviceTouchError as exc:
+            status_code = 409 if exc.code == "SUBSCRIPTION_INACTIVE" else 400
+            return Response(
+                {
+                    "error": {
+                        "code": exc.code,
+                        "message": exc.message,
+                        "details": getattr(exc, "details", {}),
+                    }
+                },
+                status=status_code,
+            )
+
+        return Response(
+            PublicSubscriptionTouchResponseSerializer(payload).data,
             status=status.HTTP_200_OK,
         )

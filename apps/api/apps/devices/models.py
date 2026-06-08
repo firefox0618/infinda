@@ -31,6 +31,7 @@ class Device(models.Model):
     platform = models.CharField("Платформа v2", max_length=80, blank=True)
     client_name = models.CharField("Клиент", max_length=80)
     client = models.CharField("Клиент v2", max_length=80, blank=True)
+    public_device_key = models.CharField("Публичный ключ устройства", max_length=64, blank=True, db_index=True)
     revoked_at = models.DateTimeField("Отозвано", null=True, blank=True)
     revoked_reason = models.CharField("Причина отзыва", max_length=255, blank=True)
     created_at = models.DateTimeField("Создано", auto_now_add=True)

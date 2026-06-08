@@ -9,6 +9,10 @@ from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
+from apps.devices.models import Device
+from apps.provisioning.models import ProvisionedDeviceAccess, ProvisioningOperation
+from apps.routing.services import ensure_default_route_catalog, get_connection_route_by_code
+
 from .models import Subscription, SubscriptionPayment, SubscriptionRoute
 from .services import (
     create_trial_subscription,
@@ -37,6 +41,9 @@ class SubscriptionApiTests(APITestCase):
         )
         self.token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        ensure_default_route_catalog()
+        self.route_ru = get_connection_route_by_code(code="ru")
+        self.route_de = get_connection_route_by_code(code="de")
 
         self.subscription = Subscription.objects.create(
             user=self.user,
@@ -44,6 +51,7 @@ class SubscriptionApiTests(APITestCase):
             starts_at=timezone.localdate(),
             ends_at=timezone.localdate() + timedelta(days=365),
             max_devices=10,
+            public_token="public-token-123",
             main_url="https://infinda.com/sub/main-abc123",
         )
         SubscriptionRoute.objects.bulk_create(
@@ -52,15 +60,17 @@ class SubscriptionApiTests(APITestCase):
                     subscription=self.subscription,
                     code="ru",
                     label="Россия",
-                    url="https://infinda.com/sub/ru-abc123",
+                    url=self.route_ru.endpoint_url,
                     position=1,
+                    connection_route=self.route_ru,
                 ),
                 SubscriptionRoute(
                     subscription=self.subscription,
                     code="de",
                     label="Германия",
-                    url="https://infinda.com/sub/de-abc123",
+                    url=self.route_de.endpoint_url,
                     position=2,
+                    connection_route=self.route_de,
                 ),
             ]
         )
@@ -70,6 +80,7 @@ class SubscriptionApiTests(APITestCase):
             starts_at=timezone.localdate(),
             ends_at=timezone.localdate() + timedelta(days=30),
             max_devices=3,
+            public_token="public-token-456",
             main_url="https://infinda.com/sub/other-xyz",
         )
 
@@ -84,9 +95,17 @@ class SubscriptionApiTests(APITestCase):
                 "is_trial",
                 "plan_name",
                 "main_link",
+                "feed_link",
+                "happ_link",
+                "happ_deep_link",
+                "happ_routing_link",
+                "client_links",
                 "active_until",
                 "remaining_days",
                 "max_devices",
+                "uses_provisioned_access",
+                "provisioned_route_count",
+                "resolved_device_name",
                 "countries",
                 "payment_history",
                 "subscription_history",
@@ -97,11 +116,97 @@ class SubscriptionApiTests(APITestCase):
         self.assertFalse(response.data["is_trial"])
         self.assertEqual(response.data["plan_name"], "12 месяцев (безлимит)")
         self.assertEqual(response.data["main_link"], "https://infinda.com/sub/main-abc123")
+        self.assertEqual(response.data["feed_link"], "http://localhost:3000/sub/public-token-123/feed")
+        self.assertEqual(
+            response.data["happ_link"],
+            "http://localhost:3000/happ/add?sub=http%3A%2F%2Flocalhost%3A3000%2Fsub%2Fpublic-token-123%2Ffeed",
+        )
+        self.assertEqual(
+            response.data["happ_deep_link"],
+            "happ://add/http://localhost:3000/sub/public-token-123/feed",
+        )
+        self.assertEqual(len(response.data["client_links"]), 3)
         self.assertEqual(response.data["max_devices"], 10)
+        self.assertFalse(response.data["uses_provisioned_access"])
+        self.assertEqual(response.data["provisioned_route_count"], 0)
+        self.assertIsNone(response.data["resolved_device_name"])
         self.assertEqual(len(response.data["countries"]), 2)
         self.assertEqual(response.data["countries"][0]["code"], "ru")
+        self.assertFalse(response.data["countries"][0]["is_provisioned"])
         self.assertEqual(response.data["payment_history"], [])
         self.assertEqual(response.data["pending_payment"], None)
+
+    def test_get_subscription_returns_provisioned_route_for_current_device_ip(self):
+        device = Device.objects.create(
+            user=self.user,
+            name="MacBook",
+            display_name="MacBook",
+            icon=Device.Icon.LAPTOP,
+            ip_address="203.0.113.10",
+            last_seen=timezone.now(),
+            status=Device.Status.ACTIVE,
+            platform_name="macOS",
+            platform="macOS",
+            client_name="Happ",
+            client="Happ",
+        )
+        ProvisionedDeviceAccess.objects.create(
+            user=self.user,
+            subscription=self.subscription,
+            device=device,
+            route=self.route_ru,
+            server=self.route_ru.server,
+            status=ProvisionedDeviceAccess.Status.ACTIVE,
+            external_client_uuid="route-uuid-1",
+            external_client_email="route-1@example.local",
+            connection_url="vless://device-route-1",
+        )
+
+        response = self.client.get("/api/subscription/", REMOTE_ADDR="203.0.113.10")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["uses_provisioned_access"])
+        self.assertEqual(response.data["provisioned_route_count"], 1)
+        self.assertEqual(response.data["resolved_device_name"], "MacBook")
+        self.assertEqual(response.data["countries"][0]["url"], "vless://device-route-1")
+        self.assertTrue(response.data["countries"][0]["is_provisioned"])
+
+    def test_get_subscription_prefers_device_key_over_ip_match(self):
+        device = Device.objects.create(
+            user=self.user,
+            name="Bound laptop",
+            display_name="Bound laptop",
+            icon=Device.Icon.LAPTOP,
+            ip_address="198.51.100.61",
+            public_device_key="device-key-123",
+            last_seen=timezone.now(),
+            status=Device.Status.ACTIVE,
+            platform_name="macOS",
+            platform="macOS",
+            client_name="Happ",
+            client="Happ",
+        )
+        ProvisionedDeviceAccess.objects.create(
+            user=self.user,
+            subscription=self.subscription,
+            device=device,
+            route=self.route_ru,
+            server=self.route_ru.server,
+            status=ProvisionedDeviceAccess.Status.ACTIVE,
+            external_client_uuid="route-uuid-2",
+            external_client_email="route-2@example.local",
+            connection_url="vless://device-key-route",
+        )
+
+        response = self.client.get(
+            "/api/subscription/",
+            REMOTE_ADDR="203.0.113.61",
+            HTTP_X_DEVICE_KEY="device-key-123",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["countries"][0]["url"], "vless://device-key-route")
+        self.assertEqual(response.data["resolved_device_name"], "Bound laptop")
 
     def test_get_subscription_returns_none_state_without_subscription(self):
         self.subscription.delete()
@@ -153,8 +258,19 @@ class SubscriptionApiTests(APITestCase):
         self.assertEqual(subscription.plan_name, "Триал 3 дня")
         self.assertEqual(subscription.remaining_days, 3)
         self.assertEqual(subscription.max_devices, 3)
+        self.assertTrue(subscription.public_token)
+        self.assertIn(subscription.public_token, subscription.main_url)
         self.assertEqual(subscription.routes.count(), 3)
         self.assertEqual(subscription.routes.first().code, "nl")
+        self.assertEqual(
+            ProvisioningOperation.objects.filter(
+                user=trial_user,
+                subscription=subscription,
+                operation_type=ProvisioningOperation.OperationType.SYNC_SUBSCRIPTION_ACCESS,
+                trigger=ProvisioningOperation.Trigger.TRIAL_STARTED,
+            ).count(),
+            3,
+        )
 
     def test_get_subscription_plans_returns_catalog(self):
         response = self.client.get("/api/subscription/plans/")
@@ -162,6 +278,190 @@ class SubscriptionApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data[0]["code"], "1m")
         self.assertEqual(response.data[-1]["code"], "12m")
+
+    def test_get_public_subscription_summary_returns_public_data(self):
+        response = self.client.get("/api/subscription/public/public-token-123/summary/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["plan_name"], "12 месяцев (безлимит)")
+        self.assertEqual(response.data["status"], "active")
+        self.assertEqual(response.data["main_link"], "https://infinda.com/sub/main-abc123")
+        self.assertEqual(response.data["feed_link"], "http://localhost:3000/sub/public-token-123/feed")
+        self.assertEqual(len(response.data["client_links"]), 3)
+        self.assertGreaterEqual(len(response.data["install_guides"]), 6)
+        self.assertEqual(response.data["install_guides"][0]["code"], "android")
+        self.assertEqual(response.data["install_guides"][0]["links"][0]["label"], "Google Play")
+        self.assertEqual(len(response.data["countries"]), 2)
+        self.assertFalse(response.data["uses_provisioned_access"])
+
+    def test_get_public_subscription_summary_returns_404_for_unknown_token(self):
+        response = self.client.get("/api/subscription/public/missing-token/summary/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data["error"]["code"], "NOT_FOUND")
+
+    def test_get_public_subscription_feed_returns_plain_text_urls(self):
+        response = self.client.get("/api/subscription/public/public-token-123/feed/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+        self.assertIn(self.route_ru.endpoint_url, response.content.decode("utf-8"))
+        self.assertIn(self.route_de.endpoint_url, response.content.decode("utf-8"))
+
+    def test_public_subscription_summary_and_feed_use_provisioned_routes_for_known_device_ip(self):
+        device = Device.objects.create(
+            user=self.user,
+            name="iPhone",
+            display_name="iPhone",
+            icon=Device.Icon.MOBILE,
+            ip_address="198.51.100.20",
+            last_seen=timezone.now(),
+            status=Device.Status.ACTIVE,
+            platform_name="iOS",
+            platform="iOS",
+            client_name="Happ",
+            client="Happ",
+        )
+        ProvisionedDeviceAccess.objects.create(
+            user=self.user,
+            subscription=self.subscription,
+            device=device,
+            route=self.route_ru,
+            server=self.route_ru.server,
+            status=ProvisionedDeviceAccess.Status.ACTIVE,
+            external_client_uuid="public-uuid-1",
+            external_client_email="public-1@example.local",
+            connection_url="vless://public-device-route-1",
+        )
+
+        summary_response = self.client.get(
+            "/api/subscription/public/public-token-123/summary/",
+            REMOTE_ADDR="198.51.100.20",
+        )
+        feed_response = self.client.get(
+            "/api/subscription/public/public-token-123/feed/",
+            REMOTE_ADDR="198.51.100.20",
+        )
+
+        self.assertEqual(summary_response.status_code, 200)
+        self.assertTrue(summary_response.data["uses_provisioned_access"])
+        self.assertEqual(summary_response.data["resolved_device_name"], "iPhone")
+        self.assertEqual(summary_response.data["countries"][0]["url"], "vless://public-device-route-1")
+        self.assertTrue(summary_response.data["countries"][0]["is_provisioned"])
+        self.assertIn("vless://public-device-route-1", feed_response.content.decode("utf-8"))
+
+    def test_touch_public_subscription_returns_ok(self):
+        response = self.client.post(
+            "/api/subscription/public/public-token-123/touch/",
+            {
+                "device_name": "iPhone device",
+                "platform": "iPhone",
+                "client": "Happ",
+                "icon": "mobile",
+            },
+            REMOTE_ADDR="198.51.100.45",
+            HTTP_X_DEVICE_KEY="touch-key-1",
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["ok"])
+        self.assertTrue(response.data["created"])
+        self.assertEqual(response.data["device"]["display_name"], "iPhone device")
+        self.assertEqual(response.data["scheduled_operation_count"], 2)
+        self.assertEqual(
+            Device.objects.get(user=self.user, ip_address="198.51.100.45").public_device_key,
+            "touch-key-1",
+        )
+        self.assertEqual(
+            Device.objects.filter(
+                user=self.user,
+                ip_address="198.51.100.45",
+                revoked_at__isnull=True,
+            ).count(),
+            1,
+        )
+
+    def test_touch_public_subscription_updates_existing_device(self):
+        device = Device.objects.create(
+            user=self.user,
+            name="Old device",
+            display_name="Old device",
+            icon=Device.Icon.DESKTOP,
+            ip_address="198.51.100.46",
+            last_seen=timezone.now() - timedelta(days=1),
+            status=Device.Status.STALE,
+            platform_name="Windows",
+            platform="Windows",
+            client_name="Other",
+            client="Other",
+        )
+
+        response = self.client.post(
+            "/api/subscription/public/public-token-123/touch/",
+            {
+                "device_name": "Updated device",
+                "platform": "macOS",
+                "client": "Happ",
+                "icon": "laptop",
+            },
+            REMOTE_ADDR="198.51.100.46",
+            HTTP_X_DEVICE_KEY="touch-key-2",
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["created"])
+        device.refresh_from_db()
+        self.assertEqual(device.platform, "macOS")
+        self.assertEqual(device.client, "Happ")
+        self.assertEqual(device.status, Device.Status.ACTIVE)
+        self.assertEqual(device.public_device_key, "touch-key-2")
+
+    def test_touch_public_subscription_rejects_inactive_subscription(self):
+        self.subscription.ends_at = timezone.localdate() - timedelta(days=1)
+        self.subscription.save(update_fields=["ends_at"])
+
+        response = self.client.post(
+            "/api/subscription/public/public-token-123/touch/",
+            {
+                "device_name": "Inactive device",
+            },
+            REMOTE_ADDR="198.51.100.47",
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data["error"]["code"], "SUBSCRIPTION_INACTIVE")
+
+    def test_touch_public_subscription_uses_unified_error_contract_for_device_limit(self):
+        self.subscription.max_devices = 1
+        self.subscription.save(update_fields=["max_devices", "updated_at"])
+        Device.objects.create(
+            user=self.user,
+            name="Existing device",
+            display_name="Existing device",
+            icon=Device.Icon.DESKTOP,
+            ip_address="198.51.100.48",
+            last_seen=timezone.now(),
+            status=Device.Status.ACTIVE,
+            platform_name="Windows",
+            platform="Windows",
+            client_name="Happ",
+            client="Happ",
+        )
+
+        response = self.client.post(
+            "/api/subscription/public/public-token-123/touch/",
+            {"device_name": "New device"},
+            REMOTE_ADDR="198.51.100.49",
+            HTTP_X_DEVICE_KEY="touch-key-limit",
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "DEVICE_LIMIT_EXCEEDED")
+        self.assertIn("max_devices", response.data["error"]["details"])
 
     def test_extend_subscription_by_days_updates_end_date(self):
         previous_ends_at = self.subscription.ends_at
@@ -242,6 +542,17 @@ class SubscriptionApiTests(APITestCase):
         self.assertIsNotNone(payment.paid_at)
         self.assertEqual(subscription.plan_name, "3 месяца")
         self.assertEqual(subscription.max_devices, 4)
+        self.assertTrue(subscription.public_token)
+        self.assertIn(subscription.public_token, subscription.main_url)
+        self.assertGreaterEqual(
+            ProvisioningOperation.objects.filter(
+                user=buyer,
+                subscription=subscription,
+                operation_type=ProvisioningOperation.OperationType.SYNC_SUBSCRIPTION_ACCESS,
+                trigger=ProvisioningOperation.Trigger.SUBSCRIPTION_ACTIVATED,
+            ).count(),
+            4,
+        )
         self.assertEqual(buyer.subscription_history_events.count(), 1)
 
     def test_mark_subscription_payment_canceled_updates_status(self):

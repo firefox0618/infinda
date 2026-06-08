@@ -11,7 +11,17 @@ def get_request_ip(request) -> str | None:
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
 
+    real_ip = request.META.get("HTTP_X_REAL_IP")
+    if real_ip:
+        return real_ip.strip()
+
     return request.META.get("REMOTE_ADDR")
+
+
+def get_request_device_key(request) -> str | None:
+    raw_value = request.META.get("HTTP_X_DEVICE_KEY") or request.headers.get("X-Device-Key")
+    normalized = str(raw_value or "").strip()
+    return normalized[:64] if normalized else None
 
 
 def log_user_activity(

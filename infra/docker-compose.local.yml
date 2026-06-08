@@ -1,0 +1,91 @@
+name: infinda-local
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: infinda-local-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-infinda}
+      POSTGRES_USER: ${POSTGRES_USER:-infinda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-infinda}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-infinda} -d ${POSTGRES_DB:-infinda}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: infinda-local-api
+    working_dir: /workspace/apps/api
+    environment:
+      DJANGO_DB_ENGINE: ${DJANGO_DB_ENGINE:-postgresql}
+      POSTGRES_DB: ${POSTGRES_DB:-infinda}
+      POSTGRES_USER: ${POSTGRES_USER:-infinda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-infinda}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-127.0.0.1,localhost,api}
+      PLATEGA_RETURN_URL: ${PLATEGA_RETURN_URL:-http://localhost:3000/cabinet}
+      PLATEGA_FAILED_URL: ${PLATEGA_FAILED_URL:-http://localhost:3000/prices}
+    command: >
+      sh -lc "python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ../:/workspace
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  telegram-bot:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: infinda-local-telegram-bot
+    working_dir: /workspace/apps/api
+    environment:
+      DJANGO_DB_ENGINE: ${DJANGO_DB_ENGINE:-postgresql}
+      POSTGRES_DB: ${POSTGRES_DB:-infinda}
+      POSTGRES_USER: ${POSTGRES_USER:-infinda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-infinda}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-127.0.0.1,localhost,api}
+    command: >
+      sh -lc "python manage.py migrate &&
+      python manage.py run_telegram_bot"
+    volumes:
+      - ../:/workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: infinda-local-web
+    working_dir: /workspace/apps/web
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://api:8000/api/}
+    command: >
+      sh -lc "npm run dev -- --hostname 0.0.0.0 --port 3000"
+    volumes:
+      - ../:/workspace
+      - web_node_modules:/workspace/apps/web/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  web_node_modules:

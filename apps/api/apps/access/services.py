@@ -1,4 +1,5 @@
 from apps.devices.models import Device
+from apps.provisioning.services import build_user_provisioning_summary
 from apps.routing.models import ConnectionRoute
 from apps.servers.models import Server
 from apps.subscription.services import (
@@ -39,6 +40,7 @@ def build_user_access_state(*, user) -> dict:
 
     active_device_count = Device.objects.filter(user=user, revoked_at__isnull=True).count()
     allowed_device_count = subscription.max_devices if subscription is not None else 0
+    provisioning_summary = build_user_provisioning_summary(user=user)
 
     if pending_payment is not None and subscription is None:
         return {
@@ -49,6 +51,12 @@ def build_user_access_state(*, user) -> dict:
             "allowed_device_count": allowed_device_count,
             "available_route_count": 0,
             "unavailable_route_codes": [],
+            "provisioning_issue_count": provisioning_summary["failed_operation_count"],
+            "last_provisioning_error_codes": provisioning_summary["last_error_codes"],
+            "active_provisioned_binding_count": provisioning_summary["active_binding_count"],
+            "error_provisioned_binding_count": provisioning_summary["error_binding_count"],
+            "unhealthy_provisioning_server_count": provisioning_summary["unhealthy_server_count"],
+            "degraded_provisioning_server_count": provisioning_summary["degraded_server_count"],
         }
 
     if subscription is None:
@@ -60,6 +68,12 @@ def build_user_access_state(*, user) -> dict:
             "allowed_device_count": allowed_device_count,
             "available_route_count": 0,
             "unavailable_route_codes": [],
+            "provisioning_issue_count": provisioning_summary["failed_operation_count"],
+            "last_provisioning_error_codes": provisioning_summary["last_error_codes"],
+            "active_provisioned_binding_count": provisioning_summary["active_binding_count"],
+            "error_provisioned_binding_count": provisioning_summary["error_binding_count"],
+            "unhealthy_provisioning_server_count": provisioning_summary["unhealthy_server_count"],
+            "degraded_provisioning_server_count": provisioning_summary["degraded_server_count"],
         }
 
     if subscription_status == SUBSCRIPTION_STATUS_EXPIRED:
@@ -71,6 +85,12 @@ def build_user_access_state(*, user) -> dict:
             "allowed_device_count": allowed_device_count,
             "available_route_count": 0,
             "unavailable_route_codes": [],
+            "provisioning_issue_count": provisioning_summary["failed_operation_count"],
+            "last_provisioning_error_codes": provisioning_summary["last_error_codes"],
+            "active_provisioned_binding_count": provisioning_summary["active_binding_count"],
+            "error_provisioned_binding_count": provisioning_summary["error_binding_count"],
+            "unhealthy_provisioning_server_count": provisioning_summary["unhealthy_server_count"],
+            "degraded_provisioning_server_count": provisioning_summary["degraded_server_count"],
         }
 
     if subscription_status == SUBSCRIPTION_STATUS_PENDING_PAYMENT:
@@ -82,6 +102,12 @@ def build_user_access_state(*, user) -> dict:
             "allowed_device_count": allowed_device_count,
             "available_route_count": 0,
             "unavailable_route_codes": [],
+            "provisioning_issue_count": provisioning_summary["failed_operation_count"],
+            "last_provisioning_error_codes": provisioning_summary["last_error_codes"],
+            "active_provisioned_binding_count": provisioning_summary["active_binding_count"],
+            "error_provisioned_binding_count": provisioning_summary["error_binding_count"],
+            "unhealthy_provisioning_server_count": provisioning_summary["unhealthy_server_count"],
+            "degraded_provisioning_server_count": provisioning_summary["degraded_server_count"],
         }
 
     if active_device_count > allowed_device_count:
@@ -93,6 +119,12 @@ def build_user_access_state(*, user) -> dict:
             "allowed_device_count": allowed_device_count,
             "available_route_count": 0,
             "unavailable_route_codes": [],
+            "provisioning_issue_count": provisioning_summary["failed_operation_count"],
+            "last_provisioning_error_codes": provisioning_summary["last_error_codes"],
+            "active_provisioned_binding_count": provisioning_summary["active_binding_count"],
+            "error_provisioned_binding_count": provisioning_summary["error_binding_count"],
+            "unhealthy_provisioning_server_count": provisioning_summary["unhealthy_server_count"],
+            "degraded_provisioning_server_count": provisioning_summary["degraded_server_count"],
         }
 
     assigned_routes = list_subscription_connection_routes(subscription=subscription)
@@ -105,6 +137,12 @@ def build_user_access_state(*, user) -> dict:
             "allowed_device_count": allowed_device_count,
             "available_route_count": 0,
             "unavailable_route_codes": [],
+            "provisioning_issue_count": provisioning_summary["failed_operation_count"],
+            "last_provisioning_error_codes": provisioning_summary["last_error_codes"],
+            "active_provisioned_binding_count": provisioning_summary["active_binding_count"],
+            "error_provisioned_binding_count": provisioning_summary["error_binding_count"],
+            "unhealthy_provisioning_server_count": provisioning_summary["unhealthy_server_count"],
+            "degraded_provisioning_server_count": provisioning_summary["degraded_server_count"],
         }
 
     available_routes = assigned_routes.filter(
@@ -128,6 +166,12 @@ def build_user_access_state(*, user) -> dict:
             "allowed_device_count": allowed_device_count,
             "available_route_count": 0,
             "unavailable_route_codes": unavailable_route_codes,
+            "provisioning_issue_count": provisioning_summary["failed_operation_count"],
+            "last_provisioning_error_codes": provisioning_summary["last_error_codes"],
+            "active_provisioned_binding_count": provisioning_summary["active_binding_count"],
+            "error_provisioned_binding_count": provisioning_summary["error_binding_count"],
+            "unhealthy_provisioning_server_count": provisioning_summary["unhealthy_server_count"],
+            "degraded_provisioning_server_count": provisioning_summary["degraded_server_count"],
         }
 
     return {
@@ -140,4 +184,10 @@ def build_user_access_state(*, user) -> dict:
         "allowed_device_count": allowed_device_count,
         "available_route_count": available_routes.count(),
         "unavailable_route_codes": unavailable_route_codes,
+        "provisioning_issue_count": provisioning_summary["failed_operation_count"],
+        "last_provisioning_error_codes": provisioning_summary["last_error_codes"],
+        "active_provisioned_binding_count": provisioning_summary["active_binding_count"],
+        "error_provisioned_binding_count": provisioning_summary["error_binding_count"],
+        "unhealthy_provisioning_server_count": provisioning_summary["unhealthy_server_count"],
+        "degraded_provisioning_server_count": provisioning_summary["degraded_server_count"],
     }

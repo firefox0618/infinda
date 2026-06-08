@@ -20,6 +20,12 @@ export type CabinetAccessState = {
   allowedDeviceCount: number;
   availableRouteCount: number;
   unavailableRouteCodes: readonly string[];
+  provisioningIssueCount: number;
+  lastProvisioningErrorCodes: readonly string[];
+  activeProvisionedBindingCount: number;
+  errorProvisionedBindingCount: number;
+  unhealthyProvisioningServerCount: number;
+  degradedProvisioningServerCount: number;
 };
 
 export type CabinetDevice = {
@@ -49,6 +55,15 @@ export type CabinetProfile = {
 export type CabinetSubscriptionRoute = {
   code: string;
   label: string;
+  url: string;
+  isProvisioned: boolean;
+  client_links: readonly CabinetSubscriptionClientLink[];
+};
+
+export type CabinetSubscriptionClientLink = {
+  code: string;
+  label: string;
+  kind: "happ" | "generic" | "routing";
   url: string;
 };
 
@@ -84,9 +99,17 @@ export type CabinetSubscription = {
   isTrial: boolean;
   planName: string | null;
   mainLink: string | null;
+  feedLink: string | null;
+  happLink: string | null;
+  happDeepLink: string | null;
+  happRoutingLink: string | null;
+  clientLinks: readonly CabinetSubscriptionClientLink[];
   activeUntil: string | null;
   remainingDays: number;
   maxDevices: number | null;
+  usesProvisionedAccess: boolean;
+  provisionedRouteCount: number;
+  resolvedDeviceName: string | null;
   countries: readonly CabinetSubscriptionRoute[];
   paymentHistory: readonly CabinetPaymentHistoryEntry[];
   subscriptionHistory: readonly CabinetSubscriptionHistoryEntry[];

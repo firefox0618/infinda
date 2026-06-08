@@ -6,6 +6,9 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from apps.activity.models import UserActivity
+from apps.provisioning.models import ProvisioningOperation
+from apps.routing.services import ensure_default_route_catalog
+from apps.subscription.models import Subscription, SubscriptionRoute
 
 from .models import Device
 
@@ -54,6 +57,25 @@ class DevicesApiTests(APITestCase):
             client_name="Safari",
             client="Safari",
         )
+        routes = ensure_default_route_catalog()
+        self.subscription = Subscription.objects.create(
+            user=self.user,
+            plan_name="3 месяца",
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=90),
+            max_devices=3,
+            public_token="device-public-token",
+            main_url="https://infinda.com/sub/device-public-token",
+        )
+        for index, route in enumerate(routes[:2], start=1):
+            SubscriptionRoute.objects.create(
+                subscription=self.subscription,
+                code=route.code,
+                label=route.location.name,
+                url=route.endpoint_url,
+                position=index,
+                connection_route=route,
+            )
 
     def test_list_devices_returns_only_current_user_devices(self):
         response = self.client.get("/api/devices/")
@@ -94,6 +116,14 @@ class DevicesApiTests(APITestCase):
         self.assertIsNotNone(self.device.revoked_at)
         self.assertEqual(self.device.status, Device.Status.REVOKED)
         self.assertEqual(self.device.revoked_reason, "Потерян ноутбук")
+        self.assertEqual(
+            ProvisioningOperation.objects.filter(
+                user=self.user,
+                device=self.device,
+                operation_type=ProvisioningOperation.OperationType.REVOKE_DEVICE_ACCESS,
+            ).count(),
+            2,
+        )
         self.assertTrue(
             UserActivity.objects.filter(
                 user=self.user,
@@ -105,6 +135,43 @@ class DevicesApiTests(APITestCase):
         list_response = self.client.get("/api/devices/")
         self.assertEqual(len(list_response.data), 1)
         self.assertEqual(list_response.data[0]["computed_status"], "revoked")
+
+    def test_repair_device_schedules_provisioning_operations(self):
+        response = self.client.post(
+            f"/api/devices/{self.device.id}/repair/",
+            {"reason": "Слетел доступ"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["scheduled_operation_count"], 2)
+        self.assertEqual(response.data["failed_operation_count"], 0)
+        self.assertEqual(response.data["device"]["id"], self.device.id)
+        self.assertEqual(
+            ProvisioningOperation.objects.filter(
+                user=self.user,
+                device=self.device,
+                operation_type=ProvisioningOperation.OperationType.REPAIR_DEVICE_ACCESS,
+            ).count(),
+            2,
+        )
+        self.assertTrue(
+            UserActivity.objects.filter(
+                user=self.user,
+                action=UserActivity.Action.VPN_REPAIR_EVENT,
+                metadata__device_id=self.device.id,
+            ).exists()
+        )
+
+    def test_repair_device_rejects_revoked_device(self):
+        self.device.revoked_at = timezone.now()
+        self.device.status = Device.Status.REVOKED
+        self.device.save(update_fields=["revoked_at", "status", "updated_at"])
+
+        response = self.client.post(f"/api/devices/{self.device.id}/repair/")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "VALIDATION_ERROR")
 
     def test_revoke_device_rejects_foreign_device(self):
         response = self.client.post(f"/api/devices/{self.other_device.id}/revoke/")

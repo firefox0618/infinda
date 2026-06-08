@@ -12,6 +12,13 @@ type CountryLink = {
   code: string;
   label: string;
   url: string;
+  isProvisioned: boolean;
+  client_links: readonly {
+    code: string;
+    label: string;
+    kind: "happ" | "generic" | "routing";
+    url: string;
+  }[];
 };
 
 type SubscriptionDetail = {
@@ -24,13 +31,28 @@ type CabinetSubscriptionPanelProps = {
     status: "none" | "trial" | "active" | "expired" | "pending_payment";
     isTrial: boolean;
     mainLink: string | null;
+    clientLinks: readonly {
+      code: string;
+      label: string;
+      kind: "happ" | "generic" | "routing";
+      url: string;
+    }[];
     countries: readonly CountryLink[];
     paymentHistory: readonly CabinetPaymentHistoryEntry[];
     subscriptionHistory: readonly CabinetSubscriptionHistoryEntry[];
     pendingPayment: CabinetPaymentHistoryEntry | null;
+    usesProvisionedAccess: boolean;
+    provisionedRouteCount: number;
+    resolvedDeviceName: string | null;
   };
   selectedCountryCode: string;
   selectedCountryUrl: string | null;
+  selectedCountryClientLinks: readonly {
+    code: string;
+    label: string;
+    kind: "happ" | "generic" | "routing";
+    url: string;
+  }[];
   details: readonly SubscriptionDetail[];
   mainCopyLabel: string;
   serverCopyLabel: string;
@@ -44,6 +66,7 @@ export function CabinetSubscriptionPanel({
   subscription,
   selectedCountryCode,
   selectedCountryUrl,
+  selectedCountryClientLinks,
   details,
   mainCopyLabel,
   serverCopyLabel,
@@ -157,6 +180,36 @@ export function CabinetSubscriptionPanel({
                   <span>{mainCopyLabel}</span>
                 </button>
               </div>
+              {subscription.clientLinks.length > 0 ? (
+                <div className={styles.subscriptionClientGrid}>
+                  {subscription.clientLinks.map((clientLink) => (
+                    <a
+                      key={clientLink.code}
+                      className={`${styles.subscriptionClientLink} ${
+                        clientLink.kind === "happ"
+                          ? styles.subscriptionClientLinkPrimary
+                          : clientLink.kind === "routing"
+                            ? styles.subscriptionClientLinkMuted
+                            : ""
+                      }`}
+                      href={clientLink.url}
+                    >
+                      {clientLink.label}
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+              {subscription.usesProvisionedAccess ? (
+                <div className={styles.subscriptionHint}>
+                  Для текущего устройства {subscription.resolvedDeviceName ?? "без названия"} уже используются
+                  реальные provisioned credentials по {subscription.provisionedRouteCount} маршрутам.
+                </div>
+              ) : (
+                <div className={styles.subscriptionHint}>
+                  Пока показываются общие fallback-ссылки. Provisioned credentials появятся после привязки
+                  устройства и успешной синхронизации.
+                </div>
+              )}
             </div>
           ) : (
             <div className={styles.emptyState}>
@@ -172,7 +225,7 @@ export function CabinetSubscriptionPanel({
           <div className={styles.panelHead}>
             <div>
               <div className={styles.panelTitle}>Отдельный маршрут</div>
-              <div className={styles.panelSub}>Ссылка под конкретную страну</div>
+              <div className={styles.panelSub}>Отдельная ссылка под конкретный сервер</div>
             </div>
           </div>
           <div className={styles.panelBody}>
@@ -196,6 +249,11 @@ export function CabinetSubscriptionPanel({
                 </div>
                 <div className={styles.subscriptionBlock}>
                   <div className={styles.subscriptionBlockLabel}>Выбранный маршрут</div>
+                  <div className={styles.subscriptionHint}>
+                    {subscription.countries.find((country) => country.code === selectedCountryCode)?.isProvisioned
+                      ? "Для этого маршрута уже используется provisioned credential текущего устройства."
+                      : "Для этого маршрута пока используется общий fallback URL."}
+                  </div>
                   <div className={styles.compactSubscriptionRow}>
                     <div className={styles.compactUrlPanel}>{selectedCountryUrl}</div>
                     <button
@@ -207,6 +265,23 @@ export function CabinetSubscriptionPanel({
                       <span>{serverCopyLabel}</span>
                     </button>
                   </div>
+                  {selectedCountryClientLinks.length > 0 ? (
+                    <div className={styles.subscriptionClientGrid}>
+                      {selectedCountryClientLinks.map((clientLink) => (
+                        <a
+                          key={clientLink.code}
+                          className={`${styles.subscriptionClientLink} ${
+                            clientLink.kind === "happ"
+                              ? styles.subscriptionClientLinkPrimary
+                              : ""
+                          }`}
+                          href={clientLink.url}
+                        >
+                          {clientLink.label}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </>
             ) : (

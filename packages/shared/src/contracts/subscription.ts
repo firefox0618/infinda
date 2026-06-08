@@ -15,6 +15,15 @@ export type SubscriptionRouteDto = {
   code: string;
   label: string;
   url: string;
+  is_provisioned: boolean;
+  client_links: SubscriptionClientLinkDto[];
+};
+
+export type SubscriptionClientLinkDto = {
+  code: string;
+  label: string;
+  kind: "happ" | "generic" | "routing";
+  url: string;
 };
 
 export type EmptySubscriptionDto = {
@@ -47,9 +56,17 @@ export type FilledSubscriptionDto = {
   is_trial: boolean;
   plan_name: string;
   main_link: string;
+  feed_link: string;
+  happ_link: string;
+  happ_deep_link: string;
+  happ_routing_link: string;
+  client_links: SubscriptionClientLinkDto[];
   active_until: string;
   remaining_days: number;
   max_devices: number;
+  uses_provisioned_access: boolean;
+  provisioned_route_count: number;
+  resolved_device_name: string | null;
   countries: SubscriptionRouteDto[];
   payment_history: SubscriptionPaymentHistoryDto[];
   subscription_history: SubscriptionHistoryEventDto[];

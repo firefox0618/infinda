@@ -1,0 +1,17 @@
+[Unit]
+Description=INFINDA Next.js Web
+After=network.target infinda-api.service
+Wants=infinda-api.service
+
+[Service]
+Type=simple
+User=infinda
+Group=infinda
+WorkingDirectory=/opt/infinda/apps/web
+EnvironmentFile=/opt/infinda/infra/env/infinda.app.env
+ExecStart=/usr/bin/env npm run start -- --hostname 127.0.0.1 --port 3000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -8,6 +8,7 @@
 - корневой интеграционный и e2e-слой уже начал наполняться реальными сценариями;
 - базовая структура `tests/api` и `tests/web` уже заведена;
 - в `tests/api` уже есть несколько сквозных backend-сценариев;
+- в `tests/api` уже есть отдельный сценарий для `public subscription -> touch -> provisioning -> cabinet/access`;
 - в `tests/web` уже есть первый реальный Playwright-сценарий `test_auth_to_support.spec.ts`.
 
 Планируемое наполнение:

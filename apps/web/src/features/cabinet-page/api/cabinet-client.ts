@@ -10,11 +10,14 @@ import type {
 } from "../components/cabinet-models";
 import {
   accessApiPaths,
+  type AccessSyncDto,
   type AccessStateDto,
   devicesApiPaths,
   type DeviceDto,
   type FilledSubscriptionDto,
   profileApiPaths,
+  type RepairDeviceRequestDto,
+  type RepairDeviceResponseDto,
   type RevokeDeviceRequestDto,
   type ProfileDto,
   subscriptionApiPaths,
@@ -53,6 +56,11 @@ export type CabinetSubscriptionCheckout = {
   provider: string;
   paymentMethod: string;
   planCode: string;
+};
+
+export type CabinetAccessSyncResult = {
+  scheduledOperationCount: number;
+  failedOperationCount: number;
 };
 
 export class CabinetRequestError extends Error {
@@ -106,6 +114,12 @@ function mapAccessState(accessState: AccessStateDto): CabinetAccessState {
     allowedDeviceCount: accessState.allowed_device_count,
     availableRouteCount: accessState.available_route_count,
     unavailableRouteCodes: accessState.unavailable_route_codes,
+    provisioningIssueCount: accessState.provisioning_issue_count,
+    lastProvisioningErrorCodes: accessState.last_provisioning_error_codes,
+    activeProvisionedBindingCount: accessState.active_provisioned_binding_count,
+    errorProvisionedBindingCount: accessState.error_provisioned_binding_count,
+    unhealthyProvisioningServerCount: accessState.unhealthy_provisioning_server_count,
+    degradedProvisioningServerCount: accessState.degraded_provisioning_server_count,
   };
 }
 
@@ -188,9 +202,17 @@ function mapSubscription(subscription: SubscriptionDto): CabinetSubscription {
       isTrial: false,
       planName: null,
       mainLink: null,
+      feedLink: null,
+      happLink: null,
+      happDeepLink: null,
+      happRoutingLink: null,
+      clientLinks: [],
       activeUntil: null,
       remainingDays: 0,
       maxDevices: null,
+      usesProvisionedAccess: false,
+      provisionedRouteCount: 0,
+      resolvedDeviceName: null,
       countries: [],
       paymentHistory: [],
       subscriptionHistory: [],
@@ -207,10 +229,21 @@ function mapSubscription(subscription: SubscriptionDto): CabinetSubscription {
     isTrial: resolvedSubscription.is_trial,
     planName: resolvedSubscription.plan_name,
     mainLink: resolvedSubscription.main_link,
+    feedLink: resolvedSubscription.feed_link,
+    happLink: resolvedSubscription.happ_link,
+    happDeepLink: resolvedSubscription.happ_deep_link,
+    happRoutingLink: resolvedSubscription.happ_routing_link,
+    clientLinks: resolvedSubscription.client_links,
     activeUntil: mapDate(resolvedSubscription.active_until),
     remainingDays: resolvedSubscription.remaining_days,
     maxDevices: resolvedSubscription.max_devices,
-    countries: resolvedSubscription.countries,
+    usesProvisionedAccess: resolvedSubscription.uses_provisioned_access,
+    provisionedRouteCount: resolvedSubscription.provisioned_route_count,
+    resolvedDeviceName: resolvedSubscription.resolved_device_name,
+    countries: resolvedSubscription.countries.map((country) => ({
+      ...country,
+      isProvisioned: country.is_provisioned,
+    })),
     paymentHistory: resolvedSubscription.payment_history.map(mapPaymentHistoryEntry),
     subscriptionHistory: resolvedSubscription.subscription_history.map(
       mapSubscriptionHistoryEntry,
@@ -458,6 +491,57 @@ export async function revokeCabinetDevice(
 
   const payload = parseJsonResponse<DeviceDto>(await response.text()) as DeviceDto;
   return mapDevice(payload);
+}
+
+export async function repairCabinetDevice(
+  token: string,
+  deviceId: number,
+  reason?: string,
+) {
+  const requestPayload: RepairDeviceRequestDto | undefined =
+    reason && reason.trim() ? { reason: reason.trim() } : undefined;
+  const response = await fetch(`/api/${devicesApiPaths.repair(deviceId)}`, {
+    method: "POST",
+    headers: {
+      ...(requestPayload ? { "Content-Type": "application/json" } : {}),
+      Authorization: `Token ${token}`,
+    },
+    body: requestPayload ? JSON.stringify(requestPayload) : undefined,
+  });
+
+  if (!response.ok) {
+    const error = await parseError(response, "Не удалось восстановить устройство.");
+    throw new CabinetRequestError(error.message, error.errorCode);
+  }
+
+  const payload = parseJsonResponse<RepairDeviceResponseDto>(
+    await response.text(),
+  ) as RepairDeviceResponseDto;
+  return {
+    device: mapDevice(payload.device),
+    scheduledOperationCount: payload.scheduled_operation_count,
+    failedOperationCount: payload.failed_operation_count,
+  };
+}
+
+export async function syncCabinetAccess(token: string) {
+  const response = await fetch(`/api/${accessApiPaths.sync}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Token ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await parseError(response, "Не удалось синхронизировать доступ.");
+    throw new CabinetRequestError(error.message, error.errorCode);
+  }
+
+  const payload = parseJsonResponse<AccessSyncDto>(await response.text()) as AccessSyncDto;
+  return {
+    scheduledOperationCount: payload.scheduled_operation_count,
+    failedOperationCount: payload.failed_operation_count,
+  } satisfies CabinetAccessSyncResult;
 }
 
 export async function fetchCabinetSupportConversation(token: string) {

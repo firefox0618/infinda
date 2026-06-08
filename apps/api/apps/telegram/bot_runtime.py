@@ -25,53 +25,31 @@ def process_telegram_update(*, update: dict, client: TelegramBotClient) -> None:
     link_token = _extract_start_link_token(message_text)
 
     if link_token is not None:
-        _handle_link_command(
-            client=client,
-            chat_id=chat_id,
-            sender=sender,
-            token=link_token,
-        )
+        _handle_link_command(client=client, chat_id=chat_id, sender=sender, token=link_token)
         return
 
     if message_text.startswith("/start"):
-        client.send_message(
-            chat_id=chat_id,
-            text=(
-                "Этот бот принимает сообщения в поддержку после привязки Telegram "
-                "в личном кабинете INFINDA."
-            ),
-        )
+        _send_start_hint(client=client, chat_id=chat_id)
         return
 
     telegram_link = get_active_telegram_link_by_telegram_user_id(telegram_user_id=telegram_user_id)
     if telegram_link is None:
-        client.send_message(
-            chat_id=chat_id,
-            text=(
-                "Telegram пока не привязан к аккаунту INFINDA. "
-                "Откройте личный кабинет и выполните привязку в разделе Telegram."
-            ),
-        )
+        _send_unlinked_hint(client=client, chat_id=chat_id)
         return
 
     attachments = _extract_supported_attachments(message=message, client=client)
     if not message_text and not attachments:
-        client.send_message(
-            chat_id=chat_id,
-            text="Поддерживаются текстовые сообщения, фото и документы.",
-        )
+        _send_empty_message_hint(client=client, chat_id=chat_id)
         return
 
-    create_support_message_from_telegram(
-        user=telegram_link.user,
-        sender_display_name=_build_sender_display_name(sender=sender),
-        text=message_text,
+    _forward_support_message(
+        client=client,
+        chat_id=chat_id,
+        telegram_link=telegram_link,
+        sender=sender,
+        message_text=message_text,
         attachments=attachments,
         telegram_user_id=telegram_user_id,
-    )
-    client.send_message(
-        chat_id=chat_id,
-        text="Сообщение передано в поддержку INFINDA.",
     )
 
 
@@ -98,6 +76,56 @@ def _handle_link_command(*, client: TelegramBotClient, chat_id: int, sender: dic
         text=(
             "Telegram успешно привязан. Теперь можно писать сюда сообщения для поддержки INFINDA."
         ),
+    )
+
+
+def _send_start_hint(*, client: TelegramBotClient, chat_id: int) -> None:
+    client.send_message(
+        chat_id=chat_id,
+        text=(
+            "Этот бот принимает сообщения в поддержку после привязки Telegram "
+            "в личном кабинете INFINDA."
+        ),
+    )
+
+
+def _send_unlinked_hint(*, client: TelegramBotClient, chat_id: int) -> None:
+    client.send_message(
+        chat_id=chat_id,
+        text=(
+            "Telegram пока не привязан к аккаунту INFINDA. "
+            "Откройте личный кабинет и выполните привязку в разделе Telegram."
+        ),
+    )
+
+
+def _send_empty_message_hint(*, client: TelegramBotClient, chat_id: int) -> None:
+    client.send_message(
+        chat_id=chat_id,
+        text="Поддерживаются текстовые сообщения, фото и документы.",
+    )
+
+
+def _forward_support_message(
+    *,
+    client: TelegramBotClient,
+    chat_id: int,
+    telegram_link,
+    sender: dict,
+    message_text: str,
+    attachments: list[IncomingSupportAttachment],
+    telegram_user_id: int,
+) -> None:
+    create_support_message_from_telegram(
+        user=telegram_link.user,
+        sender_display_name=_build_sender_display_name(sender=sender),
+        text=message_text,
+        attachments=attachments,
+        telegram_user_id=telegram_user_id,
+    )
+    client.send_message(
+        chat_id=chat_id,
+        text="Сообщение передано в поддержку INFINDA.",
     )
 
 

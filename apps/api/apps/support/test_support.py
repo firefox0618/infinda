@@ -614,6 +614,7 @@ class AdminDashboardWorkspaceTests(TestCase):
             starts_at=today - timedelta(days=10),
             ends_at=today + timedelta(days=3),
             max_devices=3,
+            public_token="support-admin-dashboard-token",
             main_url="https://example.com/subscription",
         )
         SubscriptionPayment.objects.create(

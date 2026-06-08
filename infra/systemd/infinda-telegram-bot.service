@@ -1,0 +1,17 @@
+[Unit]
+Description=INFINDA Telegram Bot Runtime
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=infinda
+Group=infinda
+WorkingDirectory=/opt/infinda/apps/api
+EnvironmentFile=/opt/infinda/infra/env/infinda.app.env
+ExecStart=/opt/infinda/apps/api/.venv/bin/python manage.py run_telegram_bot
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

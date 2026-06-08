@@ -20,7 +20,9 @@ import {
   fetchCabinetProfile,
   fetchCabinetSubscription,
   fetchCabinetSubscriptionPlans,
+  repairCabinetDevice,
   revokeCabinetDevice,
+  syncCabinetAccess,
   type CabinetSubscriptionPlan,
 } from "../api/cabinet-client";
 import { cabinetOverviewStats } from "../data/cabinet-content";
@@ -169,6 +171,14 @@ export function useCabinetPageState({
         };
       }
 
+      if (stat.title === "Использовано трафика") {
+        return {
+          ...stat,
+          value: "—",
+          note: "учет трафика появится позже",
+        };
+      }
+
       return stat;
     });
   }, [devices, subscription]);
@@ -282,6 +292,64 @@ export function useCabinetPageState({
     [onAuthRequired],
   );
 
+  const handleRepairDevice = useCallback(
+    async (deviceId: number, reason?: string) => {
+      const token = readAuthToken();
+
+      if (!token) {
+        clearAuthSession();
+        onAuthRequired();
+        return;
+      }
+
+      try {
+        const result = await repairCabinetDevice(token, deviceId, reason);
+        setDevices((current) =>
+          current.map((device) =>
+            device.id === deviceId ? result.device : device,
+          ),
+        );
+        const refreshedAccessState = await fetchCabinetAccessState(token);
+        setAccessState(refreshedAccessState);
+        setDeviceActionState(result.failedOperationCount > 0 ? "error" : "success");
+        setDeviceActionMessage(
+          result.failedOperationCount > 0
+            ? `Восстановление запущено, но ${result.failedOperationCount} операций завершились ошибкой.`
+            : `Восстановление устройства «${result.device.displayName}» запущено.`,
+        );
+      } catch {
+        setDeviceActionState("error");
+        setDeviceActionMessage("Не удалось запустить восстановление устройства.");
+      }
+    },
+    [onAuthRequired],
+  );
+
+  const handleSyncAccess = useCallback(async () => {
+    const token = readAuthToken();
+
+    if (!token) {
+      clearAuthSession();
+      onAuthRequired();
+      return;
+    }
+
+    try {
+      const result = await syncCabinetAccess(token);
+      const refreshedAccessState = await fetchCabinetAccessState(token);
+      setAccessState(refreshedAccessState);
+      setDeviceActionState(result.failedOperationCount > 0 ? "error" : "success");
+      setDeviceActionMessage(
+        result.failedOperationCount > 0
+          ? `Синхронизация завершилась с ошибками: ${result.failedOperationCount}.`
+          : `Синхронизация доступа запущена: ${result.scheduledOperationCount} операций.`,
+      );
+    } catch {
+      setDeviceActionState("error");
+      setDeviceActionMessage("Не удалось запустить синхронизацию доступа.");
+    }
+  }, [onAuthRequired]);
+
   const closeProfileModal = useCallback(() => {
     setIsProfileModalOpen(false);
     resetProfileState();
@@ -321,8 +389,10 @@ export function useCabinetPageState({
     closeRenewModal,
     handleCreateTelegramLink: handleCreateLink,
     handleLogout,
+    handleRepairDevice,
     handleRevokeDevice,
     handleSaveProfile,
+    handleSyncAccess,
     handleSubscriptionCheckout,
     handleUnlinkTelegram: handleUnlink,
     openRenewModal,

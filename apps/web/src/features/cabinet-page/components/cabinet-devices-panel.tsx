@@ -11,6 +11,7 @@ type CabinetDevicesPanelProps = {
   devices: readonly CabinetDevice[];
   actionMessage: string;
   actionState: "idle" | "success" | "error";
+  onRepairDevice: (deviceId: number, reason?: string) => void;
   onRevokeDevice: (deviceId: number, reason?: string) => void;
 };
 
@@ -18,6 +19,7 @@ export function CabinetDevicesPanel({
   actionMessage,
   actionState,
   devices,
+  onRepairDevice,
   onRevokeDevice,
 }: CabinetDevicesPanelProps) {
   const [expandedDeviceId, setExpandedDeviceId] = useState<number | null>(null);
@@ -109,13 +111,22 @@ export function CabinetDevicesPanel({
                     </button>
 
                     {device.computedStatus !== "revoked" ? (
-                      <button
-                        type="button"
-                        className={styles.revokeInlineButton}
-                        onClick={() => onRevokeDevice(device.id, revokeReason[device.id])}
-                      >
-                        Отозвать
-                      </button>
+                      <div className={styles.deviceInlineActions}>
+                        <button
+                          type="button"
+                          className={styles.repairInlineButton}
+                          onClick={() => onRepairDevice(device.id, revokeReason[device.id])}
+                        >
+                          Восстановить
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.revokeInlineButton}
+                          onClick={() => onRevokeDevice(device.id, revokeReason[device.id])}
+                        >
+                          Отозвать
+                        </button>
+                      </div>
                     ) : null}
                   </div>
 

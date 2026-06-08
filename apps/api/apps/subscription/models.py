@@ -16,6 +16,7 @@ class Subscription(models.Model):
     starts_at = models.DateField("Дата начала")
     ends_at = models.DateField("Активна до")
     max_devices = models.PositiveSmallIntegerField("Лимит устройств", default=10)
+    public_token = models.CharField("Публичный токен", max_length=64, unique=True)
     main_url = models.URLField("Основная ссылка подписки")
     created_at = models.DateTimeField("Создано", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлено", auto_now=True)

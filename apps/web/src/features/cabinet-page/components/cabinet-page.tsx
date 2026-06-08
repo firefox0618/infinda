@@ -138,6 +138,9 @@ export function CabinetPage() {
                     ? void state.writeToClipboard(state.subscription.mainLink, "main")
                     : undefined
                 }
+                onSyncAccess={() => {
+                  void state.handleSyncAccess();
+                }}
                 onOpenRenew={state.openRenewModal}
                 onOpenTab={state.setActiveTab}
               />
@@ -148,6 +151,7 @@ export function CabinetPage() {
                 subscription={state.subscription}
                 selectedCountryCode={state.selectedCountry}
                 selectedCountryUrl={state.selectedCountryLink?.url ?? null}
+                selectedCountryClientLinks={state.selectedCountryLink?.client_links ?? []}
                 details={state.subscriptionDetails}
                 mainCopyLabel={state.mainCopyLabel}
                 serverCopyLabel={state.serverCopyLabel}
@@ -171,6 +175,9 @@ export function CabinetPage() {
                 actionMessage={state.deviceActionMessage}
                 actionState={state.deviceActionState}
                 devices={state.devices}
+                onRepairDevice={(deviceId, reason) => {
+                  void state.handleRepairDevice(deviceId, reason);
+                }}
                 onRevokeDevice={(deviceId, reason) => {
                   void state.handleRevokeDevice(deviceId, reason);
                 }}

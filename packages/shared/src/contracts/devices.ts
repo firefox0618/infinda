@@ -1,5 +1,6 @@
 export const devicesApiPaths = {
   list: "devices/",
+  repair: (deviceId: number | string) => `devices/${deviceId}/repair/`,
   revoke: (deviceId: number | string) => `devices/${deviceId}/revoke/`,
 } as const;
 
@@ -27,4 +28,14 @@ export type DeviceDto = {
 
 export type RevokeDeviceRequestDto = {
   reason?: string;
+};
+
+export type RepairDeviceRequestDto = {
+  reason?: string;
+};
+
+export type RepairDeviceResponseDto = {
+  device: DeviceDto;
+  scheduled_operation_count: number;
+  failed_operation_count: number;
 };

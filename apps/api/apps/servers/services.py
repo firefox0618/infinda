@@ -38,3 +38,20 @@ def get_or_create_server_location(
         },
     )
     return location
+
+
+def build_server_runtime_summary() -> dict:
+    total_server_count = Server.objects.count()
+    active_server_count = Server.objects.filter(status=Server.Status.ACTIVE).count()
+    degraded_server_count = Server.objects.filter(status=Server.Status.DEGRADED).count()
+    offline_server_count = Server.objects.filter(status=Server.Status.OFFLINE).count()
+    maintenance_server_count = Server.objects.filter(status=Server.Status.MAINTENANCE).count()
+    latest_snapshot = ServerStatusSnapshot.objects.order_by("-checked_at", "-id").first()
+    return {
+        "total_server_count": total_server_count,
+        "active_server_count": active_server_count,
+        "degraded_server_count": degraded_server_count,
+        "offline_server_count": offline_server_count,
+        "maintenance_server_count": maintenance_server_count,
+        "last_runtime_check_at": latest_snapshot.checked_at if latest_snapshot is not None else None,
+    }

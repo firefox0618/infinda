@@ -5,12 +5,20 @@
 Текущее состояние:
 - Визуальные HTML-макеты находятся в каталоге `шаблоны и работа/` и являются эталоном внешнего вида.
 - Инициализированы `apps/web` на `Next.js` и `apps/api` на `Django + DRF`.
+- Целевая постановка проекта зафиксирована как полная замена `Amonora`: `INFINDA` должна стать полноценной и как web-платформа, и как Telegram-продукт.
 - В `apps/web` уже перенесены основные страницы лендинга и служебные экраны: `главная`, `возможности`, `цены`, `ресурсы`, `о нас`, `авторизация`, `личный кабинет`, а также отдельные страницы ошибок.
 - Frontend использует `App Router`, feature-слой и общий `shared`-слой.
 - Между frontend и backend уже работает BFF/proxy-слой на Next route handlers.
 - В `apps/api` уже реализованы базовые доменные модули: `auth`, `profile`, `devices`, `subscription`, `support`, `telegram`, `notifications`, `servers`, `routing`, `access`, `health`.
+- В backend теперь также начат отдельный provisioning-домен: профили серверов и журнал операций синхронизации/отзыва доступа больше не должны жить скрытой логикой внутри `devices` или `subscription`.
+- В provisioning-домене теперь появился реальный adapter layer `mock/manual/xui`: операции уже могут валидировать живую XUI-панель и inbound, а также materialize-ить отдельные device bindings с внешним `client_uuid/email/inbound`.
 - В backend уже добавлен административный audit-слой `activity` для журналирования ключевых действий пользователя.
 - В `packages/shared` уже вынесен первый реальный слой общих transport-контрактов frontend/backend: DTO, endpoint-paths и единый error-format.
+- В `Phase 1` уже начат `runtime foundation`: backend теперь умеет работать с `PostgreSQL`, а в `infra/` появился первый локальный стек `postgres + api + web + telegram-bot`.
+- В `infra/` теперь также появились первые server-run шаблоны: env, `systemd` и `nginx`.
+- В `Phase 2` начат `public access`: у подписок появился безопасный публичный токен, backend summary endpoint и первая страница `/sub/[token]`.
+- Генерация подписочных ссылок теперь разделена по типам: page/feed, Happ wrapper, Happ routing settings и отдельные ссылки по серверам, чтобы frontend не собирал их вручную.
+- Публичная подписочная страница теперь также несет install-flow для Happ: backend отдает платформенные install-guides, а frontend показывает быстрые действия и route-level импорт по странам.
 
 Базовая структура:
 - `apps/web` — frontend на `Next.js`.
@@ -24,10 +32,12 @@
 - [AGENTS.md](AGENTS.md) — единый источник постоянных правил работы
 - [docs/MEMORY.md](docs/MEMORY.md)
 - [docs/RULES.md](docs/RULES.md)
+- [docs/PHASE_00_AMONORA_REPLACEMENT_PLAN.md](docs/PHASE_00_AMONORA_REPLACEMENT_PLAN.md)
 - [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)
 - [docs/PROJECT_REVIEW_REPORT.md](docs/PROJECT_REVIEW_REPORT.md)
 - [docs/PHASE_01_FOUNDATION.md](docs/PHASE_01_FOUNDATION.md)
 - [docs/TASK_PLAN_TEMPLATE.md](docs/TASK_PLAN_TEMPLATE.md) — шаблон плана перед реализацией
+- [infra/RUNTIME_RUNBOOK.md](infra/RUNTIME_RUNBOOK.md) — простой runtime-сценарий установки, обновления и проверки
 
 Что уже реализовано:
 - В `apps/web` перенесены страницы `главная`, `возможности`, `цены`, `ресурсы`, `о нас`, `авторизация`, `личный кабинет`.
@@ -42,13 +52,25 @@
 - При регистрации новый пользователь автоматически получает trial-подписку на 3 дня с базовыми маршрутами, чтобы кабинет открывался сразу в рабочем состоянии.
 - API подписки теперь отдает явные состояния `none / trial / active / expired / pending_payment`, чтобы кабинет корректно показывал empty-state, ожидающую оплату и сценарий истекшего доступа без `404`.
 - Для подписок используется единый платежный сценарий через `Platega SBP`: `GET /api/subscription/plans/` отдает каталог тарифов, `POST /api/subscription/checkout/` создает платежную сессию, а webhook `POST /api/subscription/webhooks/platega/<secret>/` подтверждает оплату и активирует подписку.
+- Public subscription surface теперь не ограничивается raw feed: `GET /api/subscription/public/<token>/summary/` отдает также install-guides по платформам и route-level client links, а `/sub/[token]` показывает quick-start, установку Happ и отдельные действия по маршрутам.
 - Для поддержки теперь используется единый backend-диалог: `GET /api/support/conversation/` отдает историю текущего обращения, а `POST /api/support/messages/` добавляет новое сообщение с вложениями.
 - Для Telegram linking теперь используется отдельный backend-контур: `GET/POST/DELETE /api/telegram/link/` управляет статусом привязки, deep-link токеном и отвязкой Telegram.
 - В backend добавлен отдельный домен `notifications` с Telegram-first dispatch для событий оплаты, revoke устройств, ответов поддержки и привязки Telegram.
 - Управляемые пользовательские маршруты больше не живут только как URL внутри подписки: они привязаны к отдельным сущностям `ConnectionRoute` и `Server`.
+- Trial/activation подписки и revoke устройства теперь уже запускают отдельные provisioning operations, а `access-state` умеет отдавать короткую сводку по provisioning-проблемам.
+- В кабинете теперь видны provisioning-проблемы, доступен ручной sync access, а для устройств появился явный repair-flow без смешивания этой логики с обычным revoke.
+- `XUI`-adapter уже читает конфиг provisioning-профиля сервера, умеет создавать/обновлять/удалять VLESS-клиента и может падать с явными кодами ошибок `XUI_CONFIG_INCOMPLETE / XUI_LOGIN_FAILED / XUI_INBOUND_NOT_FOUND`, если интеграция настроена неверно.
+- Provisioning больше не ограничен только operation log: для каждого `device + route` теперь хранится отдельный `ProvisionedDeviceAccess` со статусом, внешним client identity, inbound и connection metadata.
+- Cabinet subscription API, public summary `/sub/[token]` и raw feed теперь уже умеют предпочитать реальные provisioned route credentials для распознанного устройства по IP; если binding еще не найден, surface мягко деградирует к старым fallback URL.
+- `POST /api/subscription/public/<token>/touch/` больше не формальный `ok`: public flow теперь создает или обновляет текущее устройство, логирует это событие и запускает device-level provisioning repair по маршрутам подписки.
+- Public page `/sub/[token]` теперь после загрузки делает browser-side `touch` и повторно запрашивает summary через Next BFF, чтобы backend видел реальный IP пользователя, а не только адрес server-side рендера.
+- Runtime heartbeat для provisioning-ноды теперь тоже замкнут: adapters умеют active health check, backend сохраняет `ServerStatusSnapshot`, `/api/health/` отдает runtime summary, а ops может вручную прогнать `check_provisioning_servers`.
+- После review-fix public device identity больше не держится только на IP: public flow использует persistent `device_key`, который идет через BFF/headers и помогает точнее матчить текущее устройство и его bindings.
+- `POST /api/subscription/public/<token>/touch/` теперь отдает единый API error-contract и больше не смешивает произвольные DRF validation payload с доменными `error.code`.
 - Для backend уже есть доменные API-тесты.
 - Корневой каталог `tests` пока остается в состоянии заготовки: системный и e2e-слой еще не развернут, а рабочие backend-тесты пока живут внутри `apps/api/apps/*/test_*.py`.
 - Для API введен единый error-contract вида `error.code / error.message / error.details`.
+- Для замены `Amonora` уже оформлен отдельный `Phase 00` baseline: parity matrix, P0-блокеры и этапность миграции зафиксированы в `docs/PHASE_00_AMONORA_REPLACEMENT_PLAN.md`.
 - Django admin показывает ФИО пользователя, связанный профиль, историю действий и жизненный статус устройств.
 - В Django admin для подписок и платежей теперь доступны административные действия: выдать подписку, продлить срок, убрать подписку, отозвать устройства, вручную отметить платеж как оплаченный/отмененный/ошибочный.
 - В Django admin для платежей теперь есть история оплат по пользователям и помесячная финансовая сводка по успешным платежам.
@@ -90,6 +112,7 @@ CI:
 - он запускает backend `check` + `app-level` и `repo-level` тесты, а также frontend `lint/typecheck/build`.
 - отдельный job `frontend-e2e` теперь также запускает Playwright-сценарии `cd apps/web && npm run test:e2e`.
 - для frontend теперь также есть первый реальный Playwright e2e-сценарий `cd apps/web && npm run test:e2e`; он сам поднимает backend/frontend стек, применяет backend-миграции и гоняет сценарий на `next build + next start`.
+- в `tests/api` теперь есть и repo-level сценарий для public subscription flow: `register -> /sub/[token] touch -> provisioned summary/feed -> cabinet/access sync`.
 
 Принцип работы:
 - Сначала планирование и уточнение.

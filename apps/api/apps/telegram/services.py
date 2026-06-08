@@ -2,6 +2,9 @@ from datetime import timedelta
 from secrets import token_urlsafe
 from urllib.parse import quote
 
+import time
+import logging
+
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -13,6 +16,9 @@ from apps.notifications.services import dispatch_notification
 
 from .bot_client import TelegramBotClient
 from .models import TelegramAccountLink, TelegramLinkToken
+
+
+logger = logging.getLogger(__name__)
 
 
 TELEGRAM_LINK_TTL_MINUTES = 15
@@ -111,29 +117,12 @@ def confirm_telegram_link(
     if existing_link is not None:
         raise ValidationError({"telegram_user_id": "Этот Telegram уже привязан к другому аккаунту."})
 
-    link, created = TelegramAccountLink.objects.get_or_create(
+    link = _upsert_telegram_account_link(
         user=link_token.user,
-        defaults={
-            "telegram_user_id": telegram_user_id,
-            "telegram_username": telegram_username,
-            "telegram_full_name": telegram_full_name,
-            "is_active": True,
-        },
+        telegram_user_id=telegram_user_id,
+        telegram_username=telegram_username,
+        telegram_full_name=telegram_full_name,
     )
-    if not created:
-        link.telegram_user_id = telegram_user_id
-        link.telegram_username = telegram_username
-        link.telegram_full_name = telegram_full_name
-        link.is_active = True
-        link.save(
-            update_fields=[
-                "telegram_user_id",
-                "telegram_username",
-                "telegram_full_name",
-                "is_active",
-                "updated_at",
-            ]
-        )
 
     link_token.consumed_at = now
     link_token.save(update_fields=["consumed_at", "updated_at"])
@@ -156,6 +145,45 @@ def confirm_telegram_link(
             "telegram_full_name": telegram_full_name,
         },
     )
+    return link
+
+
+def _upsert_telegram_account_link(
+    *,
+    user,
+    telegram_user_id: int,
+    telegram_username: str,
+    telegram_full_name: str,
+) -> TelegramAccountLink:
+    link, created = TelegramAccountLink.objects.get_or_create(
+        user=user,
+        defaults={
+            "telegram_user_id": telegram_user_id,
+            "telegram_username": telegram_username,
+            "telegram_full_name": telegram_full_name,
+            "is_active": True,
+        },
+    )
+    if created:
+        return link
+
+    changed_fields: list[str] = []
+    if link.telegram_user_id != telegram_user_id:
+        link.telegram_user_id = telegram_user_id
+        changed_fields.append("telegram_user_id")
+    if link.telegram_username != telegram_username:
+        link.telegram_username = telegram_username
+        changed_fields.append("telegram_username")
+    if link.telegram_full_name != telegram_full_name:
+        link.telegram_full_name = telegram_full_name
+        changed_fields.append("telegram_full_name")
+    if not link.is_active:
+        link.is_active = True
+        changed_fields.append("is_active")
+
+    if changed_fields:
+        link.save(update_fields=changed_fields + ["updated_at"])
+
     return link
 
 
@@ -220,9 +248,37 @@ def send_telegram_document(
 
 
 def notify_support_team_about_ticket(*, text: str) -> bool:
-    raw_chat_id = str(getattr(settings, "TELEGRAM_SUPPORT_NOTIFICATIONS_CHAT_ID", "")).strip()
-    if not raw_chat_id:
+    chat_id = _get_support_notifications_chat_id()
+    if chat_id is None:
         return False
 
-    send_telegram_message(chat_id=int(raw_chat_id), text=text)
+    send_telegram_message(chat_id=chat_id, text=text)
     return True
+
+
+def _get_support_notifications_chat_id() -> int | None:
+    raw_chat_id = str(getattr(settings, "TELEGRAM_SUPPORT_NOTIFICATIONS_CHAT_ID", "")).strip()
+    if not raw_chat_id:
+        return None
+
+    return int(raw_chat_id)
+
+
+def run_telegram_bot_polling() -> None:
+    from apps.telegram.bot_runtime import process_telegram_update
+
+    client = build_telegram_bot_client()
+    offset = None
+
+    while True:
+        try:
+            updates = client.get_updates(
+                offset=offset,
+                timeout_seconds=settings.TELEGRAM_BOT_POLL_TIMEOUT_SECONDS,
+            )
+            for update in updates:
+                process_telegram_update(update=update, client=client)
+                offset = update["update_id"] + 1
+        except TelegramBotClientError as exc:
+            logger.warning("Telegram bot error: %s", exc)
+            time.sleep(settings.TELEGRAM_BOT_RETRY_DELAY_SECONDS)
