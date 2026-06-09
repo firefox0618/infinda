@@ -51,6 +51,7 @@
 - Support admin workflow теперь доступен не только из Django admin: staff API также умеет list queue, assign, reply и close для того же ticket-домена.
 - В backend уже добавлен модуль `telegram` с endpoint-ами `GET/POST/DELETE /api/telegram/link/` и `POST /api/telegram/link/confirm/`; кабинет теперь умеет готовить безопасный deep-link для привязки Telegram к web-аккаунту.
 - Для `telegram` теперь также добавлен отдельный backend runtime `./.venv/bin/python manage.py run_telegram_bot`: он подтверждает `start link_*` deep-link, принимает inbound сообщения/вложения из Telegram и передает их в существующий домен `support` без дублирования бизнес-логики.
+- Telegram runtime уже начал переходить в product-surface: после привязки bot теперь умеет показывать main menu, статус подписки, список устройств, тарифы, checkout link, manual sync access и device repair command поверх реальных backend-доменов.
 - Для доменных пользовательских событий теперь выделен отдельный модуль `notifications`; генерация уведомлений больше не должна размазываться по `support`, `telegram` и `subscription`.
 - Для `Batch 2` в backend теперь должны жить отдельные домены `servers`, `routing` и `access`: серверы и маршруты отделены от подписки, а кабинет должен получать единый access-state из backend.
 - Support-контур теперь должен развиваться как единая тикетная система: прием тикета, назначенный оператор, видимый пользователю автор ответа на сайте, исходящие Telegram-ответы для Telegram-диалогов и уведомление о закрытии в том же канале, где шел диалог.

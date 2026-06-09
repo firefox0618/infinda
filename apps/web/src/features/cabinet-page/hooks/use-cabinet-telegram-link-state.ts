@@ -121,8 +121,8 @@ export function useCabinetTelegramLinkState({
       await loadTelegramLinkStatus();
       setDeepLinkUrl(nextLink.deepLinkUrl);
       setLinkActionState("success");
-      setLinkActionMessage("Открываем Telegram для привязки аккаунта…");
-      window.location.assign(nextLink.deepLinkUrl);
+      setLinkActionMessage("Ссылка привязки готова.");
+      window.open(nextLink.deepLinkUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       if (
         error instanceof CabinetRequestError &&

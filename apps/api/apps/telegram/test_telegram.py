@@ -1,5 +1,7 @@
 from datetime import timedelta
 import tempfile
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -7,6 +9,10 @@ from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
+from apps.devices.models import Device
+from apps.provisioning.models import ProvisioningOperation
+from apps.subscription.models import Subscription, SubscriptionRoute
+from apps.routing.services import ensure_default_route_catalog, get_connection_route_by_code
 from apps.support.models import SupportConversation
 
 from .bot_runtime import process_telegram_update
@@ -134,11 +140,12 @@ class FakeTelegramBotClient:
             "documents/support-log.txt": b"support-log",
         }
 
-    def send_message(self, *, chat_id: int, text: str) -> None:
+    def send_message(self, *, chat_id: int, text: str, reply_markup: dict | None = None) -> None:
         self.sent_messages.append(
             {
                 "chat_id": chat_id,
                 "text": text,
+                "reply_markup": reply_markup,
             }
         )
 
@@ -188,6 +195,7 @@ class TelegramBotRuntimeTests(TestCase):
             email="bot-user@example.com",
             password="telegram-pass-123",
         )
+        ensure_default_route_catalog()
 
     def test_process_start_link_confirms_binding(self):
         token = create_telegram_link_token(
@@ -258,7 +266,427 @@ class TelegramBotRuntimeTests(TestCase):
         self.assertEqual(message.text, "Нужна помощь по подписке")
         self.assertEqual(message.attachments.count(), 1)
         self.assertEqual(message.attachments.first().file_name, "support-log.txt")
+
+    def test_start_for_linked_user_returns_main_menu(self):
+        TelegramAccountLink.objects.create(
+            user=self.user,
+            telegram_user_id=700001,
+            telegram_username="menu_user",
+            telegram_full_name="Menu User",
+        )
+
+        process_telegram_update(
+            update={
+                "update_id": 3,
+                "message": {
+                    "chat": {"id": 9100},
+                    "from": {
+                        "id": 700001,
+                        "username": "menu_user",
+                        "first_name": "Menu",
+                        "last_name": "User",
+                    },
+                    "text": "/start",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("INFINDA bot подключен", self.client.sent_messages[-1]["text"])
+        self.assertIn("/subscription", self.client.sent_messages[-1]["text"])
+        self.assertIsNotNone(self.client.sent_messages[-1]["reply_markup"])
+
+    def test_start_for_unlinked_user_returns_link_help_keyboard(self):
+        process_telegram_update(
+            update={
+                "update_id": 11,
+                "message": {
+                    "chat": {"id": 9108},
+                    "from": {
+                        "id": 800001,
+                        "username": "unlinked_user",
+                        "first_name": "Unlinked",
+                        "last_name": "User",
+                    },
+                    "text": "/start",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("Этот бот принимает сообщения в поддержку", self.client.sent_messages[-1]["text"])
+        self.assertIsNotNone(self.client.sent_messages[-1]["reply_markup"])
+
+    def test_subscription_menu_button_routes_to_subscription_summary(self):
+        TelegramAccountLink.objects.create(
+            user=self.user,
+            telegram_user_id=800002,
+            telegram_username="button_user",
+            telegram_full_name="Button User",
+        )
+        route = get_connection_route_by_code(code="ru")
+        subscription = Subscription.objects.create(
+            user=self.user,
+            plan_name="6 месяцев",
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=180),
+            max_devices=5,
+            public_token="telegram-token-4",
+            main_url="https://infinda.com/sub/telegram-token-4",
+        )
+        SubscriptionRoute.objects.create(
+            subscription=subscription,
+            code="ru",
+            label="Россия",
+            url=route.endpoint_url,
+            position=1,
+            connection_route=route,
+        )
+
+        process_telegram_update(
+            update={
+                "update_id": 12,
+                "message": {
+                    "chat": {"id": 9109},
+                    "from": {
+                        "id": 800002,
+                        "username": "button_user",
+                        "first_name": "Button",
+                        "last_name": "User",
+                    },
+                    "text": "Подписка",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("Подписка: 6 месяцев", self.client.sent_messages[-1]["text"])
+
+    def test_link_help_button_returns_onboarding_hint(self):
+        process_telegram_update(
+            update={
+                "update_id": 13,
+                "message": {
+                    "chat": {"id": 9110},
+                    "from": {
+                        "id": 800003,
+                        "username": "help_user",
+                        "first_name": "Help",
+                        "last_name": "User",
+                    },
+                    "text": "Как привязать Telegram",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("Чтобы использовать INFINDA bot как личный кабинет", self.client.sent_messages[-1]["text"])
+
+    def test_subscription_command_returns_real_subscription_summary(self):
+        TelegramAccountLink.objects.create(
+            user=self.user,
+            telegram_user_id=700002,
+            telegram_username="subscription_user",
+            telegram_full_name="Subscription User",
+        )
+        route = get_connection_route_by_code(code="ru")
+        subscription = Subscription.objects.create(
+            user=self.user,
+            plan_name="3 месяца",
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=90),
+            max_devices=4,
+            public_token="telegram-token-1",
+            main_url="https://infinda.com/sub/telegram-token-1",
+        )
+        SubscriptionRoute.objects.create(
+            subscription=subscription,
+            code="ru",
+            label="Россия",
+            url=route.endpoint_url,
+            position=1,
+            connection_route=route,
+        )
+
+        process_telegram_update(
+            update={
+                "update_id": 4,
+                "message": {
+                    "chat": {"id": 9101},
+                    "from": {
+                        "id": 700002,
+                        "username": "subscription_user",
+                        "first_name": "Subscription",
+                        "last_name": "User",
+                    },
+                    "text": "/subscription",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("Подписка: 3 месяца", self.client.sent_messages[-1]["text"])
+        self.assertIn("Маршрутов: 1", self.client.sent_messages[-1]["text"])
+
+    def test_devices_command_returns_real_devices_summary(self):
+        TelegramAccountLink.objects.create(
+            user=self.user,
+            telegram_user_id=700003,
+            telegram_username="devices_user",
+            telegram_full_name="Devices User",
+        )
+        Device.objects.create(
+            user=self.user,
+            name="MacBook",
+            display_name="MacBook",
+            icon=Device.Icon.LAPTOP,
+            ip_address="203.0.113.101",
+            last_seen=timezone.now(),
+            status=Device.Status.ACTIVE,
+            platform_name="macOS",
+            platform="macOS",
+            client_name="Happ",
+            client="Happ",
+        )
+
+        process_telegram_update(
+            update={
+                "update_id": 5,
+                "message": {
+                    "chat": {"id": 9102},
+                    "from": {
+                        "id": 700003,
+                        "username": "devices_user",
+                        "first_name": "Devices",
+                        "last_name": "User",
+                    },
+                    "text": "/devices",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("Ваши устройства:", self.client.sent_messages[-1]["text"])
+        self.assertIn("MacBook", self.client.sent_messages[-1]["text"])
+        self.assertIn("active", self.client.sent_messages[-1]["text"])
+
+    def test_support_command_returns_product_hint(self):
+        TelegramAccountLink.objects.create(
+            user=self.user,
+            telegram_user_id=700004,
+            telegram_username="support_user",
+            telegram_full_name="Support User",
+        )
+
+        process_telegram_update(
+            update={
+                "update_id": 6,
+                "message": {
+                    "chat": {"id": 9103},
+                    "from": {
+                        "id": 700004,
+                        "username": "support_user",
+                        "first_name": "Support",
+                        "last_name": "User",
+                    },
+                    "text": "/support",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("Напишите сообщение прямо в этот чат", self.client.sent_messages[-1]["text"])
+
+    def test_plans_command_returns_catalog_hint(self):
+        TelegramAccountLink.objects.create(
+            user=self.user,
+            telegram_user_id=700005,
+            telegram_username="plans_user",
+            telegram_full_name="Plans User",
+        )
+
+        process_telegram_update(
+            update={
+                "update_id": 7,
+                "message": {
+                    "chat": {"id": 9104},
+                    "from": {
+                        "id": 700005,
+                        "username": "plans_user",
+                        "first_name": "Plans",
+                        "last_name": "User",
+                    },
+                    "text": "/plans",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("Доступные тарифы:", self.client.sent_messages[-1]["text"])
+        self.assertIn("/buy 3m", self.client.sent_messages[-1]["text"])
+
+    @override_settings(
+        PLATEGA_MERCHANT_ID="merchant-1",
+        PLATEGA_SECRET_KEY="secret-1",
+    )
+    @patch(
+        "apps.subscription.services.PlategaClient.create_payment",
+        return_value=SimpleNamespace(
+            transaction_id="plat-telegram-buy-100",
+            checkout_url="https://pay.platega.example/plat-telegram-buy-100",
+            status="PENDING",
+            raw={
+                "transactionId": "plat-telegram-buy-100",
+                "redirect": "https://pay.platega.example/plat-telegram-buy-100",
+                "status": "PENDING",
+            },
+        ),
+    )
+    def test_buy_command_returns_checkout_link(self, mocked_create_payment):
+        TelegramAccountLink.objects.create(
+            user=self.user,
+            telegram_user_id=700006,
+            telegram_username="buy_user",
+            telegram_full_name="Buy User",
+        )
+
+        process_telegram_update(
+            update={
+                "update_id": 8,
+                "message": {
+                    "chat": {"id": 9105},
+                    "from": {
+                        "id": 700006,
+                        "username": "buy_user",
+                        "first_name": "Buy",
+                        "last_name": "User",
+                    },
+                    "text": "/buy 3m",
+                },
+            },
+            client=self.client,
+        )
+
+        mocked_create_payment.assert_called_once()
+        self.assertIn("Ссылка на оплату тарифа 3 месяца:", self.client.sent_messages[-1]["text"])
+        self.assertIn("https://pay.platega.example/plat-telegram-buy-100", self.client.sent_messages[-1]["text"])
+
+    def test_sync_command_runs_manual_subscription_sync(self):
+        TelegramAccountLink.objects.create(
+            user=self.user,
+            telegram_user_id=700007,
+            telegram_username="sync_user",
+            telegram_full_name="Sync User",
+        )
+        route = get_connection_route_by_code(code="ru")
+        subscription = Subscription.objects.create(
+            user=self.user,
+            plan_name="1 месяц",
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=30),
+            max_devices=3,
+            public_token="telegram-token-2",
+            main_url="https://infinda.com/sub/telegram-token-2",
+        )
+        SubscriptionRoute.objects.create(
+            subscription=subscription,
+            code="ru",
+            label="Россия",
+            url=route.endpoint_url,
+            position=1,
+            connection_route=route,
+        )
+
+        process_telegram_update(
+            update={
+                "update_id": 9,
+                "message": {
+                    "chat": {"id": 9106},
+                    "from": {
+                        "id": 700007,
+                        "username": "sync_user",
+                        "first_name": "Sync",
+                        "last_name": "User",
+                    },
+                    "text": "/sync",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("Синхронизация доступа запущена.", self.client.sent_messages[-1]["text"])
         self.assertEqual(
-            self.client.sent_messages[-1]["text"],
-            "Сообщение передано в поддержку INFINDA.",
+            ProvisioningOperation.objects.filter(
+                user=self.user,
+                subscription=subscription,
+                trigger=ProvisioningOperation.Trigger.MANUAL_SYNC,
+            ).count(),
+            1,
+        )
+
+    def test_repair_command_runs_device_repair(self):
+        TelegramAccountLink.objects.create(
+            user=self.user,
+            telegram_user_id=700008,
+            telegram_username="repair_user",
+            telegram_full_name="Repair User",
+        )
+        route = get_connection_route_by_code(code="ru")
+        subscription = Subscription.objects.create(
+            user=self.user,
+            plan_name="1 месяц",
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=30),
+            max_devices=3,
+            public_token="telegram-token-3",
+            main_url="https://infinda.com/sub/telegram-token-3",
+        )
+        SubscriptionRoute.objects.create(
+            subscription=subscription,
+            code="ru",
+            label="Россия",
+            url=route.endpoint_url,
+            position=1,
+            connection_route=route,
+        )
+        device = Device.objects.create(
+            user=self.user,
+            name="Repair Laptop",
+            display_name="Repair Laptop",
+            icon=Device.Icon.LAPTOP,
+            ip_address="203.0.113.120",
+            last_seen=timezone.now(),
+            status=Device.Status.ACTIVE,
+            platform_name="Linux",
+            platform="Linux",
+            client_name="Happ",
+            client="Happ",
+        )
+
+        process_telegram_update(
+            update={
+                "update_id": 10,
+                "message": {
+                    "chat": {"id": 9107},
+                    "from": {
+                        "id": 700008,
+                        "username": "repair_user",
+                        "first_name": "Repair",
+                        "last_name": "User",
+                    },
+                    "text": f"/repair {device.id}",
+                },
+            },
+            client=self.client,
+        )
+
+        self.assertIn("Восстановление устройства", self.client.sent_messages[-1]["text"])
+        self.assertEqual(
+            ProvisioningOperation.objects.filter(
+                user=self.user,
+                subscription=subscription,
+                device=device,
+                trigger=ProvisioningOperation.Trigger.REPAIR_REQUESTED,
+            ).count(),
+            1,
         )

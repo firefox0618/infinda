@@ -10,11 +10,21 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from apps.access.services import build_user_access_state
 from apps.activity.models import UserActivity
 from apps.activity.services import log_user_activity
+from apps.devices.models import Device
+from apps.devices.services import repair_user_device, resolve_device_computed_status
 from apps.notifications.services import dispatch_notification
+from apps.provisioning.services import schedule_device_repair, schedule_manual_subscription_sync
+from apps.subscription.services import (
+    create_subscription_checkout,
+    get_latest_pending_subscription_payment,
+    get_user_subscription,
+    list_subscription_plans,
+)
 
-from .bot_client import TelegramBotClient
+from .bot_client import TelegramBotClient, TelegramBotClientError
 from .models import TelegramAccountLink, TelegramLinkToken
 
 
@@ -22,10 +32,188 @@ logger = logging.getLogger(__name__)
 
 
 TELEGRAM_LINK_TTL_MINUTES = 15
+TELEGRAM_MENU_BUTTON_SUBSCRIPTION = "Подписка"
+TELEGRAM_MENU_BUTTON_DEVICES = "Устройства"
+TELEGRAM_MENU_BUTTON_PLANS = "Тарифы"
+TELEGRAM_MENU_BUTTON_SYNC = "Синхронизация"
+TELEGRAM_MENU_BUTTON_SUPPORT = "Поддержка"
+TELEGRAM_MENU_BUTTON_MENU = "Меню"
+TELEGRAM_MENU_BUTTON_LINK_HELP = "Как привязать Telegram"
+TELEGRAM_MAIN_MENU_TEXT = (
+    "Команды INFINDA:\n"
+    "/menu - показать это меню\n"
+    "/subscription - статус подписки и оплаты\n"
+    "/devices - список устройств\n"
+    "/plans - доступные тарифы\n"
+    "/buy <code> - получить ссылку на оплату\n"
+    "/sync - запустить синхронизацию доступа\n"
+    "/repair <device_id> - восстановить доступ для устройства\n"
+    "/support - как написать в поддержку"
+)
 
 
 def get_active_telegram_link(*, user):
     return TelegramAccountLink.objects.filter(user=user, is_active=True).first()
+
+
+def build_telegram_main_menu_text() -> str:
+    return TELEGRAM_MAIN_MENU_TEXT
+
+
+def build_telegram_linked_reply_keyboard() -> dict:
+    return {
+        "keyboard": [
+            [
+                {"text": TELEGRAM_MENU_BUTTON_SUBSCRIPTION},
+                {"text": TELEGRAM_MENU_BUTTON_DEVICES},
+            ],
+            [
+                {"text": TELEGRAM_MENU_BUTTON_PLANS},
+                {"text": TELEGRAM_MENU_BUTTON_SYNC},
+            ],
+            [
+                {"text": TELEGRAM_MENU_BUTTON_SUPPORT},
+                {"text": TELEGRAM_MENU_BUTTON_MENU},
+            ],
+        ],
+        "resize_keyboard": True,
+        "is_persistent": True,
+    }
+
+
+def build_telegram_unlinked_reply_keyboard() -> dict:
+    return {
+        "keyboard": [[{"text": TELEGRAM_MENU_BUTTON_LINK_HELP}]],
+        "resize_keyboard": True,
+        "is_persistent": True,
+    }
+
+
+def build_telegram_link_help_text() -> str:
+    return (
+        "Чтобы использовать INFINDA bot как личный кабинет, сначала привяжите Telegram в web-кабинете.\n"
+        "Шаги:\n"
+        "1. Откройте кабинет INFINDA.\n"
+        "2. Перейдите в раздел Telegram.\n"
+        "3. Нажмите кнопку привязки и откройте deep-link."
+    )
+
+
+def build_telegram_subscription_summary(*, user) -> str:
+    subscription = get_user_subscription(user=user)
+    access_state = build_user_access_state(user=user)
+    pending_payment = get_latest_pending_subscription_payment(user=user)
+
+    if subscription is None:
+        if pending_payment is not None:
+            return (
+                "Подписка: ожидает оплаты\n"
+                f"Тариф: {pending_payment.plan_name}\n"
+                f"Сумма: {pending_payment.amount_rub} RUB\n"
+                "После подтверждения оплаты доступ активируется автоматически."
+            )
+        return (
+            "Подписка пока не оформлена.\n"
+            "Доступные команды:\n"
+            "/menu - команды бота\n"
+            "/support - помощь оператора"
+        )
+
+    route_count = subscription.routes.count()
+    lines = [
+        f"Подписка: {subscription.plan_name}",
+        f"Статус: {access_state['subscription_status']}",
+        f"Активна до: {subscription.ends_at:%d.%m.%Y}",
+        f"Осталось дней: {subscription.remaining_days}",
+        f"Лимит устройств: {access_state['active_device_count']} из {subscription.max_devices}",
+        f"Маршрутов: {route_count}",
+    ]
+    if pending_payment is not None:
+        lines.append(
+            f"Есть ожидающая оплата: {pending_payment.plan_name} · {pending_payment.amount_rub} RUB"
+        )
+    if access_state["provisioning_issue_count"] > 0:
+        lines.append(
+            "Есть provisioning-проблемы. Проверьте устройства в кабинете или напишите в поддержку."
+        )
+    return "\n".join(lines)
+
+
+def build_telegram_devices_summary(*, user) -> str:
+    devices = list(Device.objects.filter(user=user).order_by("-last_seen", "-created_at")[:10])
+    if not devices:
+        return "Устройств пока нет. После первого подключения они появятся здесь."
+
+    lines = ["Ваши устройства:"]
+    active_count = 0
+    for device in devices:
+        computed_status = resolve_device_computed_status(device=device)
+        if computed_status == Device.Status.ACTIVE:
+            active_count += 1
+        lines.append(
+            f"- #{device.id} {device.resolved_display_name} · {device.resolved_platform} · "
+            f"{device.resolved_client} · {computed_status}"
+        )
+    lines.append(f"Всего показано: {len(devices)}. Активных: {active_count}.")
+    return "\n".join(lines)
+
+
+def build_telegram_support_hint() -> str:
+    return (
+        "Напишите сообщение прямо в этот чат, и оно попадет в поддержку INFINDA.\n"
+        "Можно отправлять текст, фото и документы.\n"
+        "Команда /menu покажет остальные действия."
+    )
+
+
+def build_telegram_subscription_plans_text() -> str:
+    lines = ["Доступные тарифы:"]
+    for plan in list_subscription_plans():
+        lines.append(
+            f"- {plan['code']}: {plan['title']} · {plan['price_rub']} RUB · "
+            f"{plan['max_devices']} устройств"
+        )
+    lines.append("Для оплаты используйте команду вида: /buy 3m")
+    return "\n".join(lines)
+
+
+def build_telegram_checkout_message(*, user, plan_code: str) -> str:
+    payment = create_subscription_checkout(user=user, plan_code=plan_code)
+    return (
+        f"Ссылка на оплату тарифа {payment.plan_name}:\n"
+        f"{payment.checkout_url}\n"
+        "После подтверждения оплаты подписка активируется автоматически."
+    )
+
+
+def build_telegram_sync_result(*, user) -> str:
+    subscription = get_user_subscription(user=user)
+    if subscription is None:
+        return "Активной подписки нет. Сначала оформите доступ через /plans и /buy <code>."
+
+    operations = schedule_manual_subscription_sync(subscription=subscription)
+    failed_count = len([item for item in operations if item.status == item.Status.FAILED])
+    return (
+        "Синхронизация доступа запущена.\n"
+        f"Операций: {len(operations)}\n"
+        f"Ошибок: {failed_count}"
+    )
+
+
+def build_telegram_device_repair_result(*, user, device_id: int) -> str:
+    device = repair_user_device(user=user, device_id=device_id)
+    subscription = get_user_subscription(user=user)
+    operations = schedule_device_repair(
+        subscription=subscription,
+        device=device,
+        reason="telegram-repair-command",
+    )
+    failed_count = len([item for item in operations if item.status == item.Status.FAILED])
+    return (
+        f"Восстановление устройства #{device.id} ({device.resolved_display_name}) запущено.\n"
+        f"Операций: {len(operations)}\n"
+        f"Ошибок: {failed_count}"
+    )
 
 
 def get_active_telegram_link_by_telegram_user_id(*, telegram_user_id: int):

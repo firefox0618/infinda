@@ -58,6 +58,7 @@
 - Для поддержки теперь используется единый backend-диалог: `GET /api/support/conversation/` отдает историю текущего обращения, а `POST /api/support/messages/` добавляет новое сообщение с вложениями.
 - Для операторов теперь есть и отдельный support API workflow поверх того же домена: staff может получить очередь диалогов, явно назначить тикет, ответить и закрыть его без обходных действий через сырой admin state.
 - Для Telegram linking теперь используется отдельный backend-контур: `GET/POST/DELETE /api/telegram/link/` управляет статусом привязки, deep-link токеном и отвязкой Telegram.
+- Telegram runtime теперь уже не ограничен одним linking/support-addon: для привязанного пользователя bot понимает `/menu`, `/subscription`, `/devices`, `/plans`, `/buy <code>`, `/sync`, `/repair <device_id>`, `/support` и использует реальные backend-данные.
 - В backend добавлен отдельный домен `notifications` с Telegram-first dispatch для событий оплаты, revoke устройств, ответов поддержки и привязки Telegram.
 - Управляемые пользовательские маршруты больше не живут только как URL внутри подписки: они привязаны к отдельным сущностям `ConnectionRoute` и `Server`.
 - Trial/activation подписки и revoke устройства теперь уже запускают отдельные provisioning operations, а `access-state` умеет отдавать короткую сводку по provisioning-проблемам.

@@ -33,13 +33,16 @@ class TelegramBotClient:
         response = self._request("getUpdates", json=payload)
         return response.get("result", [])
 
-    def send_message(self, *, chat_id: int, text: str) -> None:
+    def send_message(self, *, chat_id: int, text: str, reply_markup: dict | None = None) -> None:
+        payload = {
+            "chat_id": chat_id,
+            "text": text,
+        }
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
         self._request(
             "sendMessage",
-            json={
-                "chat_id": chat_id,
-                "text": text,
-            },
+            json=payload,
         )
 
     def send_document(
